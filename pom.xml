@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version>
+        <version>4.1.0</version>
         <relativePath/>
     </parent>
 
@@ -15,13 +15,15 @@
     <artifactId>tiktok-live</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>tiktok-live</name>
-    <description>Spring Boot 3 Kotlin Douyin live WebSocket client</description>
+    <description>Spring Boot 4 Kotlin Douyin live WebSocket client</description>
 
     <properties>
         <java.version>17</java.version>
         <kotlin.version>2.4.0</kotlin.version>
-        <protobuf.version>4.28.3</protobuf.version>
-        <graalvm.version>24.1.1</graalvm.version>
+        <protobuf.version>4.35.1</protobuf.version>
+        <graalvm.version>25.0.3</graalvm.version>
+        <okhttp.version>5.4.0</okhttp.version>
+        <jsoup.version>1.22.2</jsoup.version>
     </properties>
 
     <dependencies>
@@ -43,17 +45,22 @@
         </dependency>
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>4.12.0</version>
+            <artifactId>okhttp-jvm</artifactId>
+            <version>${okhttp.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.18.1</version>
+            <version>${jsoup.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
+            <version>${protobuf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
             <version>${protobuf.version}</version>
         </dependency>
         <dependency>
