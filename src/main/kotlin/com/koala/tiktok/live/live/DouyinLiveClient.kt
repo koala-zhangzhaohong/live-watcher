@@ -31,6 +31,7 @@ class DouyinLiveClient(
     private var webSocket: WebSocket? = null
     private var heartbeat: ScheduledFuture<*>? = null
     private var giftInfo: GiftInfoModel? = null
+    private var giftDiamondCounts: Map<String, Long> = emptyMap()
 
     fun start() {
         stopped.set(false)
@@ -48,6 +49,11 @@ class DouyinLiveClient(
         giftInfo = apiClient.getGiftList(auth).also {
             logger.info("Gift list loaded: statusCode={}, giftCount={}", it.statusCode, it.data?.gifts?.size ?: 0)
         }
+        giftDiamondCounts = giftInfo
+            ?.data
+            ?.gifts
+            ?.associate { it.name to it.diamondCount }
+            .orEmpty()
         val roomInfo = apiClient.getLiveInfo(auth, liveId)
         val detail = apiClient.getWebcastDetail(auth, roomInfo.userId, roomInfo.roomId, "https://live.douyin.com/$liveId")
         val initialResponse = LiveProto.LiveResponse.parseFrom(detail)
@@ -119,14 +125,16 @@ class DouyinLiveClient(
         when (item.method) {
             "WebcastGiftMessage" -> {
                 val message = LiveProto.GiftMessage.parseFrom(item.payload)
+                val diamondCount = giftDiamondCounts[message.gift.name] ?: 0
                 logger.info(
-                    "[礼物] SEC_UID = {} - {} 送给 {} - {} {} x {}",
+                    "[礼物] SEC_UID = {} - {} 送给 {} - {} {} x {} [ {} 钻石 ]",
                     message.user.secUid,
                     message.user.nickname,
                     message.toUser.secUid,
                     message.toUser.nickname,
                     message.gift.name,
                     message.comboCount,
+                    diamondCount,
                 )
             }
             "WebcastChatMessage" -> {
