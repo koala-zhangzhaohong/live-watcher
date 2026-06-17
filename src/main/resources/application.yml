@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+douyin:
+  live:
+    auto-start: false
+    live-id: ""
+    cookies: ${DY_LIVE_COOKIES:}
+    reconnect-on-close: true
+    heartbeat-seconds: 5
