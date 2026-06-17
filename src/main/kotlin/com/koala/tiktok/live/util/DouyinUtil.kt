@@ -10,7 +10,8 @@ object DouyinUtil {
 
     fun parseCookies(cookieStr: String): MutableMap<String, String> {
         if (cookieStr.isBlank()) return linkedMapOf()
-        return cookieStr.split(";")
+        return cookieStr
+            .split(";")
             .mapNotNull { part ->
                 val trimmed = part.trim()
                 if (trimmed.isBlank() || !trimmed.contains("=")) {
@@ -20,8 +21,7 @@ object DouyinUtil {
                     val value = trimmed.substringAfter("=")
                     key to value
                 }
-            }
-            .toMap(LinkedHashMap())
+            }.toMap(LinkedHashMap())
     }
 
     fun generateMsToken(length: Int = 107): String =
@@ -46,6 +46,5 @@ object DouyinUtil {
             "$key=${encode(value)}"
         }
 
-    private fun encode(value: String): String =
-        URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20")
+    private fun encode(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20")
 }

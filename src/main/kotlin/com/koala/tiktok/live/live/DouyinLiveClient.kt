@@ -49,56 +49,71 @@ class DouyinLiveClient(
 
     private fun startWebSocket() {
         totalGiftDiamond.set(0)
-        giftInfo = apiClient.getGiftList(auth).also {
-            logger.info("Gift list loaded: statusCode={}, giftCount={}", it.statusCode, it.data?.gifts?.size ?: 0)
-        }
-        giftDiamondCounts = giftInfo
-            ?.data
-            ?.gifts
-            ?.associate { it.name to it.diamondCount }
-            .orEmpty()
+        giftInfo =
+            apiClient.getGiftList(auth).also {
+                logger.info("Gift list loaded: statusCode={}, giftCount={}", it.statusCode, it.data?.gifts?.size ?: 0)
+            }
+        giftDiamondCounts =
+            giftInfo
+                ?.data
+                ?.gifts
+                ?.associate { it.name to it.diamondCount }
+                .orEmpty()
         val roomInfo = apiClient.getLiveInfo(auth, liveId)
         val detail = apiClient.getWebcastDetail(auth, roomInfo.userId, roomInfo.roomId, "https://live.douyin.com/$liveId")
         val initialResponse = LiveProto.LiveResponse.parseFrom(detail)
         val wsUrl = apiClient.buildWebSocketUrl(roomInfo, initialResponse.cursor, initialResponse.internalExt)
-        val request = Request.Builder()
-            .url(wsUrl)
-            .headers(apiClient.webSocketHeaders(auth))
-            .build()
+        val request =
+            Request
+                .Builder()
+                .url(wsUrl)
+                .headers(apiClient.webSocketHeaders(auth))
+                .build()
 
         webSocket = okHttpClient.newWebSocket(request, this)
     }
 
-    override fun onOpen(webSocket: WebSocket, response: Response) {
+    override fun onOpen(
+        webSocket: WebSocket,
+        response: Response,
+    ) {
         logger.info("### opened ### liveId={}", liveId)
-        heartbeat = scheduler.scheduleAtFixedRate(
-            {
-                try {
-                    val frame = LiveProto.PushFrame.newBuilder()
-                        .setPayloadType("hb")
-                        .build()
-                    webSocket.send(frame.toByteArray().toByteString())
-                } catch (e: Exception) {
-                    logger.warn("Heartbeat failed, closing websocket", e)
-                    webSocket.close(1001, "heartbeat failed")
-                }
-            },
-            0,
-            properties.heartbeatSeconds,
-            TimeUnit.SECONDS,
-        )
+        heartbeat =
+            scheduler.scheduleAtFixedRate(
+                {
+                    try {
+                        val frame =
+                            LiveProto.PushFrame
+                                .newBuilder()
+                                .setPayloadType("hb")
+                                .build()
+                        webSocket.send(frame.toByteArray().toByteString())
+                    } catch (e: Exception) {
+                        logger.warn("Heartbeat failed, closing websocket", e)
+                        webSocket.close(1001, "heartbeat failed")
+                    }
+                },
+                0,
+                properties.heartbeatSeconds,
+                TimeUnit.SECONDS,
+            )
     }
 
-    override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
+    override fun onMessage(
+        webSocket: WebSocket,
+        bytes: okio.ByteString,
+    ) {
         try {
             val frame = LiveProto.PushFrame.parseFrom(bytes.toByteArray())
             val response = LiveProto.LiveResponse.parseFrom(Gzip.decompress(frame.payload.toByteArray()))
             if (response.needAck) {
-                val ack = LiveProto.PushFrame.newBuilder()
-                    .setPayloadType("ack")
-                    .setPayload(ByteString.copyFromUtf8(response.internalExt))
-                    .setLogId(frame.logId)
-                    .build()
+                val ack =
+                    LiveProto.PushFrame
+                        .newBuilder()
+                        .setPayloadType("ack")
+                        .setPayload(ByteString.copyFromUtf8(response.internalExt))
+                        .setLogId(frame.logId)
+                        .build()
                 webSocket.send(ack.toByteArray().toByteString())
             }
             response.messagesListList.forEach(::handleMessage)
@@ -107,12 +122,20 @@ class DouyinLiveClient(
         }
     }
 
-    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+    override fun onFailure(
+        webSocket: WebSocket,
+        t: Throwable,
+        response: Response?,
+    ) {
         logger.error("### error ###", t)
         reconnectIfNeeded()
     }
 
-    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+    override fun onClosed(
+        webSocket: WebSocket,
+        code: Int,
+        reason: String,
+    ) {
         logger.warn("### closed ### status_code: {}, msg: {}", code, reason)
         reconnectIfNeeded()
     }
@@ -129,7 +152,7 @@ class DouyinLiveClient(
             "WebcastGiftMessage" -> {
                 val message = LiveProto.GiftMessage.parseFrom(item.payload)
                 val diamondCount = giftDiamondCounts[message.gift.name] ?: 0
-                val currentTotalGiftDiamond = totalGiftDiamond.addAndGet(diamondCount)
+                val currentTotalGiftDiamond = totalGiftDiamond.addAndGet(diamondCount * message.comboCount)
                 logger.info("[礼物] 累计钻石 = {}", currentTotalGiftDiamond)
                 logger.info(
                     "[礼物] SEC_UID = {} - {} 送给 {} - {} {} x {} [ {} 钻石 ]",
@@ -142,30 +165,38 @@ class DouyinLiveClient(
                     diamondCount,
                 )
             }
+
             "WebcastChatMessage" -> {
                 val message = LiveProto.ChatMessage.parseFrom(item.payload)
                 logger.info("[消息] SEC_UID = {} - {} : {}", message.user.secUid, message.user.nickname, message.content)
             }
+
             "WebcastMemberMessage" -> {
                 val message = LiveProto.MemberMessage.parseFrom(item.payload)
                 logger.info("[进入] SEC_UID = {} - {} 进入直播间", message.user.secUid, message.user.nickname)
             }
+
             "WebcastLikeMessage" -> {
                 val message = LiveProto.LikeMessage.parseFrom(item.payload)
                 logger.info("[点赞] SEC_UID = {} - {} 点赞了 {} 次", message.user.secUid, message.user.nickname, message.count)
                 logger.info("[点赞] 点赞总数 = {}", message.total)
             }
+
             "WebcastSocialMessage" -> {
                 val message = LiveProto.SocialMessage.parseFrom(item.payload)
                 if (message.action == 1L) {
                     logger.info("[关注] SEC_UID = {} - {} 关注主播", message.user.secUid, message.user.nickname)
                 }
             }
+
             "WebcastRoomStatsMessage" -> {
                 val message = LiveProto.RoomStatsMessage.parseFrom(item.payload)
                 logger.info("[房间信息] {}", message.displayLong)
             }
-            else -> logger.info("[未处理消息] {}", item.method)
+
+            else -> {
+                logger.info("[未处理消息] {}", item.method)
+            }
         }
     }
 }

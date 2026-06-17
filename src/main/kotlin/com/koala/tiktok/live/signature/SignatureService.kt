@@ -15,10 +15,14 @@ class SignatureService {
     private val liveSignContext: Context by lazy { createContext("static/dy_live_sign.js") }
     private val aBogusContext: Context by lazy { createContext("static/dy_ab.js") }
 
-    fun generateSignature(roomId: String, userUniqueId: String): String {
-        val raw = "live_id=1,aid=6383,version_code=180800,webcast_sdk_version=1.0.15," +
-            "room_id=$roomId,sub_room_id=,sub_channel_id=,did_rule=3,user_unique_id=$userUniqueId," +
-            "device_platform=web,device_type=,ac=,identity=audience"
+    fun generateSignature(
+        roomId: String,
+        userUniqueId: String,
+    ): String {
+        val raw =
+            "live_id=1,aid=6383,version_code=180800,webcast_sdk_version=1.0.15," +
+                "room_id=$roomId,sub_room_id=,sub_channel_id=,did_rule=3,user_unique_id=$userUniqueId," +
+                "device_platform=web,device_type=,ac=,identity=audience"
         val xMsStub = DouyinUtil.md5(raw)
         return synchronized(lock) {
             val result = liveSignContext.getBindings("js").getMember("get_signature").execute(xMsStub)
@@ -28,21 +32,30 @@ class SignatureService {
         }
     }
 
-    fun generateABogus(params: Map<String, String>, data: Map<String, String> = emptyMap()): String {
+    fun generateABogus(
+        params: Map<String, String>,
+        data: Map<String, String> = emptyMap(),
+    ): String {
         val query = DouyinUtil.spliceUrl(params)
         val body = if (data.isEmpty()) "" else DouyinUtil.spliceUrl(data)
         return synchronized(lock) {
-            aBogusContext.getBindings("js").getMember("get_ab").execute(query, body).asString()
+            aBogusContext
+                .getBindings("js")
+                .getMember("get_ab")
+                .execute(query, body)
+                .asString()
         }
     }
 
     private fun createContext(resourcePath: String): Context {
         val resource = ClassPathResource(resourcePath)
         val script = resource.inputStream.use { it.readBytes().toString(StandardCharsets.UTF_8) }
-        val context = Context.newBuilder("js")
-            .allowHostAccess(HostAccess.NONE)
-            .allowIO(false)
-            .build()
+        val context =
+            Context
+                .newBuilder("js")
+                .allowHostAccess(HostAccess.NONE)
+                .allowIO(false)
+                .build()
         synchronized(lock) {
             context.eval(
                 "js",

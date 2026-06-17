@@ -21,13 +21,17 @@ class DouyinLiveController(
     private val liveService: DouyinLiveService,
 ) {
     @PostMapping("/start")
-    fun start(@RequestBody request: StartLiveRequest): Map<String, Any> {
+    fun start(
+        @RequestBody request: StartLiveRequest,
+    ): Map<String, Any> {
         val liveId = liveService.start(request.liveId, request.cookies ?: "")
         return mapOf("liveId" to liveId, "status" to "started")
     }
 
     @DeleteMapping("/{liveId}")
-    fun stop(@PathVariable liveId: String): ResponseEntity<Map<String, Any>> {
+    fun stop(
+        @PathVariable liveId: String,
+    ): ResponseEntity<Map<String, Any>> {
         val stopped = liveService.stop(liveId)
         return if (stopped) {
             ResponseEntity.ok(mapOf("liveId" to liveId, "status" to "stopped"))
@@ -43,6 +47,5 @@ class DouyinLiveController(
     }
 
     @GetMapping
-    fun active(): Map<String, Any> =
-        mapOf("liveIds" to liveService.activeLiveIds())
+    fun active(): Map<String, Any> = mapOf("liveIds" to liveService.activeLiveIds())
 }

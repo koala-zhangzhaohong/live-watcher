@@ -25,7 +25,10 @@ class DouyinLiveService(
         }
     }
 
-    fun start(liveId: String, cookies: String = properties.cookies): String {
+    fun start(
+        liveId: String,
+        cookies: String = properties.cookies,
+    ): String {
         require(liveId.isNotBlank()) { "liveId must not be blank" }
         val effectiveCookies = cookies.ifBlank { properties.cookies }
         require(effectiveCookies.isNotBlank()) { "cookies must not be blank. Set DY_LIVE_COOKIES or pass cookies in request." }
@@ -37,8 +40,7 @@ class DouyinLiveService(
         return liveId
     }
 
-    fun stop(liveId: String): Boolean =
-        clients.remove(liveId)?.also { it.stop() } != null
+    fun stop(liveId: String): Boolean = clients.remove(liveId)?.also { it.stop() } != null
 
     fun stopAll() {
         clients.values.forEach { it.stop() }

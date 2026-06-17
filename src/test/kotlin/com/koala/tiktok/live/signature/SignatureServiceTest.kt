@@ -8,13 +8,14 @@ class SignatureServiceTest {
 
     @Test
     fun `loads a bogus script and returns value`() {
-        val result = signatureService.generateABogus(
-            linkedMapOf(
-                "app_name" to "douyin_web",
-                "room_id" to "123456",
-                "msToken" to "test-token",
-            ),
-        )
+        val result =
+            signatureService.generateABogus(
+                linkedMapOf(
+                    "app_name" to "douyin_web",
+                    "room_id" to "123456",
+                    "msToken" to "test-token",
+                ),
+            )
 
         assertTrue(result.isNotBlank())
     }

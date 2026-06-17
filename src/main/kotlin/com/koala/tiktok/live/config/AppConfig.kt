@@ -17,20 +17,29 @@ import javax.net.ssl.X509TrustManager
 @EnableConfigurationProperties(DouyinLiveProperties::class)
 class AppConfig {
     @Bean
-    fun objectMapper(): ObjectMapper =
-        jacksonObjectMapper().findAndRegisterModules()
+    fun objectMapper(): ObjectMapper = jacksonObjectMapper().findAndRegisterModules()
 
     @Bean
     fun okHttpClient(): OkHttpClient {
-        val trustAll = object : X509TrustManager {
-            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
-            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
-            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
-        }
+        val trustAll =
+            object : X509TrustManager {
+                override fun checkClientTrusted(
+                    chain: Array<out X509Certificate>?,
+                    authType: String?,
+                ) = Unit
+
+                override fun checkServerTrusted(
+                    chain: Array<out X509Certificate>?,
+                    authType: String?,
+                ) = Unit
+
+                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+            }
         val sslContext = SSLContext.getInstance("TLS")
         sslContext.init(null, arrayOf(trustAll), SecureRandom())
 
-        return OkHttpClient.Builder()
+        return OkHttpClient
+            .Builder()
             .sslSocketFactory(sslContext.socketFactory, trustAll)
             .hostnameVerifier { _, _ -> true }
             .connectionSpecs(listOf(ConnectionSpec.MODERN_TLS, ConnectionSpec.COMPATIBLE_TLS, ConnectionSpec.CLEARTEXT))
