@@ -1,6 +1,8 @@
 package com.koala.tiktok.live.api
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.koala.tiktok.live.auth.DouyinAuth
+import com.koala.tiktok.live.model.GiftInfoModel
 import com.koala.tiktok.live.signature.SignatureService
 import com.koala.tiktok.live.util.DouyinUtil
 import okhttp3.Headers
@@ -26,6 +28,7 @@ data class LiveRoomInfo(
 class DouyinApiClient(
     private val okHttpClient: OkHttpClient,
     private val signatureService: SignatureService,
+    private val objectMapper: ObjectMapper,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -107,6 +110,20 @@ class DouyinApiClient(
         okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) error("Failed to fetch webcast detail: HTTP ${response.code}")
             return response.body?.bytes() ?: ByteArray(0)
+        }
+    }
+
+    fun getGiftList(auth: DouyinAuth): GiftInfoModel {
+        val request = Request.Builder()
+            .url("https://live.douyin.com/webcast/gift/list/?device_platform=webapp&aid=6383")
+            .headers(jsonHeaders("https://live.douyin.com/", auth.cookieStr))
+            .header("Cookie", auth.cookieStr)
+            .build()
+
+        okHttpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) error("Failed to fetch gift list: HTTP ${response.code}")
+            val body = response.body?.string().orEmpty()
+            return objectMapper.readValue(body, GiftInfoModel::class.java)
         }
     }
 
@@ -209,6 +226,21 @@ class DouyinApiClient(
             .add("content-type", "application/x-www-form-urlencoded; charset=UTF-8")
             .add("origin", "https://live.douyin.com")
             .add("referer", referer)
+        csrfToken(cookieStr)?.let { builder.add("x-secsdk-csrf-token", it) }
+        return builder.build()
+    }
+
+    private fun jsonHeaders(referer: String, cookieStr: String): Headers {
+        val builder = Headers.Builder()
+            .add("user-agent", USER_AGENT)
+            .add("accept", "application/json, text/plain, */*")
+            .add("accept-language", "zh-CN,zh;q=0.9,en;q=0.8")
+            .add("cache-control", "no-cache")
+            .add("pragma", "no-cache")
+            .add("referer", referer)
+            .add("sec-fetch-dest", "empty")
+            .add("sec-fetch-mode", "cors")
+            .add("sec-fetch-site", "same-origin")
         csrfToken(cookieStr)?.let { builder.add("x-secsdk-csrf-token", it) }
         return builder.build()
     }

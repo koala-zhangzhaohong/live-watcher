@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString
 import com.koala.tiktok.live.api.DouyinApiClient
 import com.koala.tiktok.live.auth.DouyinAuth
 import com.koala.tiktok.live.config.DouyinLiveProperties
+import com.koala.tiktok.live.model.GiftInfoModel
 import com.koala.tiktok.live.proto.LiveProto
 import com.koala.tiktok.live.util.Gzip
 import okhttp3.Request
@@ -29,6 +30,7 @@ class DouyinLiveClient(
     private val stopped = AtomicBoolean(false)
     private var webSocket: WebSocket? = null
     private var heartbeat: ScheduledFuture<*>? = null
+    private var giftInfo: GiftInfoModel? = null
 
     fun start() {
         stopped.set(false)
@@ -43,6 +45,9 @@ class DouyinLiveClient(
     }
 
     private fun startWebSocket() {
+        giftInfo = apiClient.getGiftList(auth).also {
+            logger.info("Gift list loaded: statusCode={}, giftCount={}", it.statusCode, it.data?.gifts?.size ?: 0)
+        }
         val roomInfo = apiClient.getLiveInfo(auth, liveId)
         val detail = apiClient.getWebcastDetail(auth, roomInfo.userId, roomInfo.roomId, "https://live.douyin.com/$liveId")
         val initialResponse = LiveProto.LiveResponse.parseFrom(detail)
