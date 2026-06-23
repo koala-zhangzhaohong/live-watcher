@@ -152,8 +152,7 @@ class DouyinLiveClient(
             "WebcastGiftMessage" -> {
                 val message = LiveProto.GiftMessage.parseFrom(item.payload)
                 val diamondCount = giftDiamondCounts[message.gift.id] ?: 0
-                val giftDiamondCount = diamondCount * message.groupCount * message.comboCount
-                val currentTotalGiftDiamond = totalGiftDiamond.addAndGet(giftDiamondCount)
+                val currentTotalGiftDiamond = totalGiftDiamond.addAndGet(diamondCount * message.groupCount * message.comboCount)
                 logger.info("[礼物] 累计钻石 = {}", currentTotalGiftDiamond)
                 logger.info(
                     "[礼物] SEC_UID = {} - {} 送给 {} - {} {} x {} [ {} 钻石 ]",
