@@ -17,7 +17,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
 
 class DouyinLiveClient(
     private val liveId: String,
@@ -33,7 +32,6 @@ class DouyinLiveClient(
     private var heartbeat: ScheduledFuture<*>? = null
     private var giftInfo: GiftInfoModel? = null
     private var giftDiamondCounts: Map<Long, Long> = emptyMap()
-    private val totalGiftDiamond = AtomicLong(0)
 
     fun start() {
         stopped.set(false)
@@ -48,7 +46,6 @@ class DouyinLiveClient(
     }
 
     private fun startWebSocket() {
-        totalGiftDiamond.set(0)
         giftInfo =
             apiClient.getGiftList(auth).also {
                 logger.info("Gift list loaded: statusCode={}, giftCount={}", it.statusCode, it.data?.gifts?.size ?: 0)
@@ -151,9 +148,6 @@ class DouyinLiveClient(
         when (item.method) {
             "WebcastGiftMessage" -> {
                 val message = LiveProto.GiftMessage.parseFrom(item.payload)
-                val diamondCount = giftDiamondCounts[message.gift.id] ?: 0
-                val currentTotalGiftDiamond = totalGiftDiamond.addAndGet(diamondCount * message.groupCount * message.comboCount)
-                logger.info("[礼物] 累计钻石 = {}", currentTotalGiftDiamond)
                 logger.info(
                     "[礼物] SEC_UID = {} - {} 送给 {} - {} {} x {} [ {} 钻石 ]",
                     message.user.secUid,
@@ -162,7 +156,7 @@ class DouyinLiveClient(
                     message.toUser.nickname,
                     if (message.groupCount > 1) "[ ${message.gift.name} * ${message.groupCount} ]" else message.gift.name,
                     message.comboCount,
-                    diamondCount,
+                    giftDiamondCounts[message.gift.id] ?: 0,
                 )
             }
 
