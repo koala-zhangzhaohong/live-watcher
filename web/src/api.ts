@@ -18,6 +18,11 @@ export interface LiveSettings {
   inactivityTimeoutSeconds: number
 }
 
+export interface CookieUpdateResult {
+  dyCookieUpdated: boolean
+  dyLiveCookieUpdated: boolean
+}
+
 export interface LiveInstance {
   instanceId: string
   lastHeartbeatEpochMs: number
@@ -55,8 +60,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const liveApi = {
   summary: () => request<LiveSummary>(''),
   settings: () => request<LiveSettings>('/settings'),
-  updateSettings: (inactivityTimeoutSeconds: number) => request<LiveSettings>('/settings', {
-    method: 'PUT', body: JSON.stringify({ inactivityTimeoutSeconds }),
+  updateSettings: (inactivityTimeoutSeconds: number, dyCookie?: string, dyLiveCookie?: string) => request<LiveSettings>('/settings', {
+    method: 'PUT', body: JSON.stringify({ inactivityTimeoutSeconds, dyCookie, dyLiveCookie }),
+  }),
+  updateCookies: (dyCookie?: string, dyLiveCookie?: string) => request<CookieUpdateResult>('/settings/cookies', {
+    method: 'PUT', body: JSON.stringify({ dyCookie, dyLiveCookie }),
   }),
   room: (liveId: string) => request<LiveRoom>(`/${encodeURIComponent(liveId)}`),
   start: (liveId: string) => request<LiveRoom>('/start', { method: 'POST', body: JSON.stringify({ liveId }) }),

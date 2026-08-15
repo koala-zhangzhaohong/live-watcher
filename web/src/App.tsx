@@ -79,7 +79,7 @@ export default function App() {
   const [view, setView] = useState<ViewMode>('rooms')
   const [form] = Form.useForm<{ liveId: string }>()
   const [passwordForm] = Form.useForm<{ password: string }>()
-  const [settingsForm] = Form.useForm<{ inactivityMinutes: number }>()
+  const [settingsForm] = Form.useForm<{ inactivityMinutes: number; dyCookie?: string; dyLiveCookie?: string }>()
 
   const refresh = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
@@ -226,7 +226,11 @@ export default function App() {
         return
       }
       const settings = await liveApi.settings()
-      settingsForm.setFieldsValue({ inactivityMinutes: settings.inactivityTimeoutSeconds / 60 })
+      settingsForm.setFieldsValue({
+        inactivityMinutes: settings.inactivityTimeoutSeconds / 60,
+        dyCookie: '',
+        dyLiveCookie: '',
+      })
       passwordForm.resetFields()
       setPasswordOpen(false)
       setSettingsOpen(true)
@@ -238,11 +242,12 @@ export default function App() {
   }
 
   const saveSettings = async () => {
-    const { inactivityMinutes } = await settingsForm.validateFields()
+    const { inactivityMinutes, dyCookie, dyLiveCookie } = await settingsForm.validateFields()
     setSettingsLoading(true)
     try {
-      await liveApi.updateSettings(Math.round(inactivityMinutes * 60))
+      await liveApi.updateSettings(Math.round(inactivityMinutes * 60), dyCookie?.trim() || undefined, dyLiveCookie?.trim() || undefined)
       message.success('设置已更新，所有监听任务已按新时长重新计算')
+      settingsForm.setFieldsValue({ dyCookie: '', dyLiveCookie: '' })
       setSettingsOpen(false)
       await refresh(true)
     } catch (error) {
@@ -355,12 +360,22 @@ export default function App() {
         </Form>
       </Modal>
 
-      <Modal title="监听设置" open={settingsOpen} okText="保存" cancelText="取消" confirmLoading={settingsLoading}
-        onOk={() => void saveSettings()} onCancel={() => setSettingsOpen(false)} destroyOnHidden>
+      <Modal title="监听设置" open={settingsOpen} confirmLoading={settingsLoading}
+        onCancel={() => setSettingsOpen(false)} destroyOnHidden
+        footer={[
+          <Button key="cancel" onClick={() => setSettingsOpen(false)} disabled={settingsLoading}>取消</Button>,
+          <Button key="save" type="primary" onClick={() => void saveSettings()} loading={settingsLoading}>保存</Button>,
+        ]}>
         <Form form={settingsForm} layout="vertical" requiredMark={false}>
           <Form.Item name="inactivityMinutes" label="不活跃监听时长" extra="从开始监听或最近一次查询该直播间状态起计算。"
             rules={[{ required: true, message: '请输入不活跃监听时长' }, { type: 'number', min: 1, message: '不能少于 1 分钟' }]}>
             <InputNumber min={1} max={10080} precision={0} addonAfter="分钟" style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="dyCookie" label="DY_COOKIES" extra="留空时不会修改或覆盖系统中现有 Cookie；填写后保存会自动覆盖并刷新 Redis。">
+            <Input.TextArea autoSize={{ minRows: 3, maxRows: 8 }} autoComplete="off" placeholder="请输入新的 DY_COOKIES（可留空）" />
+          </Form.Item>
+          <Form.Item name="dyLiveCookie" label="DY_LIVE_COOKIES" extra="留空时不会修改或覆盖系统中现有 Cookie；填写后保存会自动覆盖并刷新 Redis。">
+            <Input.TextArea autoSize={{ minRows: 3, maxRows: 8 }} autoComplete="off" placeholder="请输入新的 DY_LIVE_COOKIES（可留空）" />
           </Form.Item>
         </Form>
       </Modal>

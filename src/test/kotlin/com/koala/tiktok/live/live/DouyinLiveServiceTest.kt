@@ -9,6 +9,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 
 class DouyinLiveServiceTest {
     @Test
@@ -101,8 +103,10 @@ class DouyinLiveServiceTest {
     private fun fixture(failStarts: Boolean = false): Fixture {
         val properties = DouyinLiveProperties(cookies = TEST_COOKIES, instanceId = "test-instance")
         val factory = RecordingLiveClientFactory(failStarts)
+        val cookieService = mock(DouyinCookieService::class.java)
+        `when`(cookieService.liveCookie()).thenReturn(TEST_COOKIES)
         return Fixture(
-            service = DouyinLiveService(properties, factory, LocalLiveRoomCoordinator(properties)),
+            service = DouyinLiveService(properties, factory, LocalLiveRoomCoordinator(properties), cookieService),
             factory = factory,
         )
     }

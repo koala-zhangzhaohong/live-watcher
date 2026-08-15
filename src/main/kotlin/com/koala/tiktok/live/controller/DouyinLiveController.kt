@@ -8,6 +8,7 @@ import com.koala.tiktok.live.live.CoordinatedInstance
 import com.koala.tiktok.live.live.CachedMysteryUser
 import com.koala.tiktok.live.live.MysteryUserCache
 import com.koala.tiktok.live.live.MysteryUserType
+import com.koala.tiktok.live.live.CookieUpdateResult
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -20,11 +21,17 @@ import org.springframework.web.bind.annotation.RestController
 
 data class StartLiveRequest(
     val liveId: String,
-    val cookies: String? = null,
 )
 
 data class UpdateLiveSettingsRequest(
     val inactivityTimeoutSeconds: Long,
+    val dyCookie: String? = null,
+    val dyLiveCookie: String? = null,
+)
+
+data class UpdateCookiesRequest(
+    val dyCookie: String? = null,
+    val dyLiveCookie: String? = null,
 )
 
 @RestController
@@ -35,7 +42,7 @@ class DouyinLiveController(
 ) {
     @PostMapping("/start")
     fun start(@RequestBody request: StartLiveRequest): LiveRoomView =
-        liveService.start(request.liveId, request.cookies ?: "")
+        liveService.start(request.liveId)
 
     @PostMapping("/{liveId}/pause")
     fun pause(@PathVariable liveId: String): ResponseEntity<LiveRoomView> =
@@ -62,8 +69,14 @@ class DouyinLiveController(
     fun settings(): LiveSettings = liveService.settings()
 
     @PutMapping("/settings")
-    fun updateSettings(@RequestBody request: UpdateLiveSettingsRequest): LiveSettings =
-        liveService.updateSettings(request.inactivityTimeoutSeconds)
+    fun updateSettings(@RequestBody request: UpdateLiveSettingsRequest): LiveSettings {
+        liveService.updateCookies(request.dyCookie, request.dyLiveCookie)
+        return liveService.updateSettings(request.inactivityTimeoutSeconds)
+    }
+
+    @PutMapping("/settings/cookies")
+    fun updateCookies(@RequestBody request: UpdateCookiesRequest): CookieUpdateResult =
+        liveService.updateCookies(request.dyCookie, request.dyLiveCookie)
 
     @GetMapping("/{liveId}")
     fun room(@PathVariable liveId: String): ResponseEntity<LiveRoomView> =

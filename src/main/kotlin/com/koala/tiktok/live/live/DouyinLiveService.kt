@@ -46,32 +46,24 @@ class DouyinLiveService(
     private val properties: DouyinLiveProperties,
     private val clientFactory: LiveClientFactory,
     private val coordinator: LiveRoomCoordinator,
+    private val cookieService: DouyinCookieService,
 ) : ApplicationRunner {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val clients = ConcurrentHashMap<String, LiveClient>()
-    private val cookieOverrides = ConcurrentHashMap<String, String>()
     private val lifecycleLock = Any()
 
     override fun run(args: ApplicationArguments) {
         if (properties.autoStart && properties.liveId.isNotBlank()) {
-            start(properties.liveId, properties.cookies)
+            start(properties.liveId)
         } else {
             reconcile()
         }
     }
 
-    fun start(
-        liveId: String,
-        cookies: String = properties.cookies,
-    ): LiveRoomView {
+    fun start(liveId: String): LiveRoomView {
         val normalizedId = liveId.trim()
         require(normalizedId.isNotBlank()) { "liveId must not be blank" }
-        val effectiveCookies = cookies.ifBlank { properties.cookies }
-        require(effectiveCookies.isNotBlank()) { "cookies must not be blank. Set DY_LIVE_COOKIES or pass cookies in request." }
-        require(!coordinator.distributed || cookies.isBlank() || cookies == properties.cookies) {
-            "Per-request cookies are not supported in redis coordination mode; configure DY_LIVE_COOKIES on every instance."
-        }
-        if (!coordinator.distributed && cookies.isNotBlank()) cookieOverrides[normalizedId] = effectiveCookies
+        require(cookieService.liveCookie().isNotBlank()) { "DY_LIVE_COOKIES is not configured in Redis or resources." }
         coordinator.recordStartSucceeded(normalizedId)
         coordinator.put(normalizedId, DesiredRoomState.RUNNING)
         reconcile()
@@ -96,14 +88,12 @@ class DouyinLiveService(
 
     fun remove(liveId: String): Boolean {
         val removed = coordinator.remove(liveId)
-        cookieOverrides.remove(liveId)
         reconcile()
         return removed
     }
 
     fun removeAll() {
         coordinator.rooms().forEach { coordinator.remove(it.liveId) }
-        cookieOverrides.clear()
         reconcile()
     }
 
@@ -132,9 +122,17 @@ class DouyinLiveService(
 
     fun updateSettings(inactivityTimeoutSeconds: Long): LiveSettings {
         coordinator.updateInactivityTimeoutSeconds(inactivityTimeoutSeconds)
-        reconcile()
+        // Do not synchronously restart live clients here. A client connection can
+        // block while negotiating the websocket, which would leave the settings
+        // request (and the UI spinner) waiting indefinitely. The scheduled
+        // reconciliation loop will apply the new timeout and assignments shortly.
         return settings()
     }
+
+    fun updateCookies(
+        dyCookie: String?,
+        dyLiveCookie: String?,
+    ): CookieUpdateResult = cookieService.update(dyCookie, dyLiveCookie)
 
     fun activeLiveIds(): Set<String> = clients.keys.toSet()
 
@@ -165,7 +163,7 @@ class DouyinLiveService(
     }
 
     private fun startLocal(liveId: String) {
-        val cookies = cookieOverrides[liveId].orEmpty().ifBlank { properties.cookies }
+        val cookies = cookieService.liveCookie()
         if (cookies.isBlank()) {
             logger.error("Cannot listen to liveId={}: DY_LIVE_COOKIES is not configured on instance {}", liveId, coordinator.instanceId)
             coordinator.release(liveId)

@@ -156,8 +156,8 @@ class DouyinLiveClient(
                 val giftName = if (message.groupCount > 1) "[ ${message.gift.name} * ${message.groupCount} ]" else message.gift.name
                 val diamondCount = giftDiamondCounts[message.gift.id] ?: 0
                 val extraInfo =
-                    "[礼物] SEC_UID = ${message.user.secUid} - ${message.user.nickname} " +
-                        "送给 ${message.toUser.secUid} - ${message.toUser.nickname} $giftName x ${message.comboCount} " +
+                    "[礼物] ${message.user.nickname} " +
+                        "送给 ${message.toUser.nickname} $giftName x ${message.comboCount} " +
                         "[ $diamondCount 钻石 ]"
                 mysteryUserCache.cacheIfNeeded(currentRoomId, message.user, extraInfo)
                 logger.info(

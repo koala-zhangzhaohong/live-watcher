@@ -153,6 +153,16 @@ class RedisLiveRoomCoordinator(
         val owned = mutableSetOf<String>()
         readStates().forEach { (liveId, state) ->
             if (state == DesiredRoomState.RUNNING && selectOwner(liveId, activeInstances) == instanceId) {
+                // A crashed/restarted instance may leave its lease behind until the
+                // normal lease TTL expires. Reclaim it immediately when the owner is
+                // no longer present in the heartbeat set. This only changes ownership;
+                // the activity score is intentionally preserved so inactivity timing
+                // continues from the original last query/start timestamp.
+                val lease = leaseKey(liveId)
+                val leaseOwner = redis.opsForValue().get(lease)
+                if (leaseOwner != null && leaseOwner !in activeInstances) {
+                    redis.delete(lease)
+                }
                 redis.opsForZSet().addIfAbsent(activitiesKey, liveId, System.currentTimeMillis().toDouble())
                 if (acquireOrRenew(liveId)) owned += liveId
             } else {
