@@ -80,4 +80,10 @@ class DouyinLiveController(
         val resolvedType = MysteryUserType.fromQuery(type) ?: return ResponseEntity.badRequest().build()
         return ResponseEntity.ok(mysteryUserCache.findByType(roomId, resolvedType))
     }
+
+    @GetMapping("/users/{nickname}")
+    fun mysteryUser(@PathVariable nickname: String): ResponseEntity<CachedMysteryUser> =
+        mysteryUserCache.findBySuffixedNickname(nickname)
+            ?.let { ResponseEntity.ok(it) }
+            ?: ResponseEntity.notFound().build()
 }

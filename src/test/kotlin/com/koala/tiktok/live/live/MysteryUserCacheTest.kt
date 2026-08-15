@@ -93,6 +93,26 @@ class MysteryUserCacheTest {
     }
 
     @Test
+    fun `finds one suffixed user without room id`() {
+        val key = "tiktok-live:test:user:data:mystery-guest_8728378293"
+        `when`(valueOperations.get(key)).thenReturn(
+            "{\"id\":123456,\"nickname\":\"神秘嘉宾8728378293\",\"short_id\":654321,\"sec_uid\":\"sec\",\"extra_info\":null}",
+        )
+
+        val result = cache.findBySuffixedNickname("神秘嘉宾8728378293")
+
+        assertEquals("神秘嘉宾8728378293", result?.nickname)
+        assertEquals(123456, result?.id)
+        verify(valueOperations).get(key)
+    }
+
+    @Test
+    fun `rejects non suffixed nickname in single user lookup`() {
+        assertNull(cache.findBySuffixedNickname("神秘人"))
+        assertNull(cache.findBySuffixedNickname("普通用户"))
+    }
+
+    @Test
     fun `stores bare mystery user under room sec uid key`() {
         val user =
             LiveProto.User.newBuilder()

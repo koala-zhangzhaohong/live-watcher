@@ -123,6 +123,12 @@ class MysteryUserCache(
         }.sortedWith(compareBy(CachedMysteryUser::nickname, CachedMysteryUser::id))
     }
 
+    fun findBySuffixedNickname(nickname: String): CachedMysteryUser? {
+        if (!SUFFIXED_NICKNAME.matches(nickname)) return null
+        val key = "${properties.redisKeyPrefix}:user:data:${suffixedKeySegment(nickname)}"
+        return readUser(key)
+    }
+
     private fun typeRoot(roomId: String, type: MysteryUserType) =
         "${properties.redisKeyPrefix}:user:data:$roomId:${type.keySegment}"
 
