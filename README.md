@@ -128,4 +128,7 @@ Relevant settings:
 | `douyin.live.reconcile-seconds` | `5` | Assignment reconciliation interval |
 | `douyin.live.instance-timeout-seconds` | `20` | Time before an instance is considered unavailable |
 | `douyin.live.lease-seconds` | `15` | Per-room ownership lease; must exceed reconciliation interval |
+| `douyin.live.inactivity-timeout-seconds` | `1800` | Stop a running listener after no individual status query for this duration |
+| `douyin.live.max-consecutive-failures` | `3` | Stop retries and retain the final failure reason after this many consecutive start failures |
+| `douyin.live.room-retention-seconds` | `259200` | Retain ended and failed listener records for three days before automatic removal |
 | `douyin.live.redis-key-prefix` | `tiktok-live:<profile>` | Namespace for shared Redis keys |

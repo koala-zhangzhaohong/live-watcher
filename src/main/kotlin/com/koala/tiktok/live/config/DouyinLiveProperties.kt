@@ -15,4 +15,7 @@ data class DouyinLiveProperties(
     var instanceTimeoutSeconds: Long = 20,
     var leaseSeconds: Long = 15,
     var redisKeyPrefix: String = "douyin:live",
+    var inactivityTimeoutSeconds: Long = 1800,
+    var roomRetentionSeconds: Long = 3 * 24 * 60 * 60,
+    var maxConsecutiveFailures: Long = 3,
 )

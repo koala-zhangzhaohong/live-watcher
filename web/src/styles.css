@@ -8,7 +8,7 @@ body { background: #f4f6f8; color: #172033; }
 .content { width: min(1440px, 100%); margin: 0 auto; padding: 28px; }
 .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .page-heading h2 { margin: 0 0 4px !important; font-size: 25px !important; letter-spacing: 0; }
-.stats-band { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 1px; background: #e4e8ee; border: 1px solid #e4e8ee; margin-bottom: 20px; }
+.stats-band { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 1px; background: #e4e8ee; border: 1px solid #e4e8ee; margin-bottom: 20px; }
 .stats-band .ant-statistic { background: #fff; padding: 18px 20px; min-height: 100px; }
 .stats-band .ant-statistic-title { font-size: 13px; }
 .stats-band .ant-statistic-content { font-size: 26px; }
@@ -17,6 +17,17 @@ body { background: #f4f6f8; color: #172033; }
 .table-panel .ant-table-wrapper { padding: 0 16px 8px; }
 .table-panel .ant-table-cell { white-space: nowrap; }
 .create-form { padding-top: 12px; }
+.room-card-list, .instance-card-list { display: grid; gap: 10px; padding: 10px; background: #f4f6f8; }
+.room-card, .instance-card { min-width: 0; border: 1px solid #e4e8ee; background: #fff; padding: 14px; }
+.room-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #edf0f4; }
+.instance-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #edf0f4; }
+.instance-card-head .ant-typography { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.room-card-meta { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 10px 8px; padding: 12px 0; font-size: 13px; }
+.room-card-meta > span:nth-child(odd) { color: #6b7280; }
+.room-card-meta .ant-typography { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-card-failure { max-width: 100%; height: auto; padding: 0 0 12px; white-space: normal; text-align: left; }
+.room-card-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-top: 12px; border-top: 1px solid #edf0f4; }
+.room-card-actions .ant-btn { width: 100%; }
 
 @media (max-width: 800px) {
   .topbar { height: 58px; padding: 0 16px; }
@@ -27,7 +38,23 @@ body { background: #f4f6f8; color: #172033; }
   .stats-band { grid-template-columns: repeat(2, 1fr); }
   .stats-band .ant-statistic { min-height: 84px; padding: 13px 14px; }
   .stats-band .ant-statistic-content { font-size: 22px; }
-  .stats-band .ant-statistic:last-child { grid-column: span 2; }
   .table-panel .ant-table-wrapper { padding: 0 8px 6px; }
   .table-toolbar { align-items: flex-start !important; }
+}
+
+@media (max-width: 760px) {
+  .topbar { gap: 10px; }
+  .topbar .brand span { display: none; }
+  .topbar .ant-space { gap: 6px !important; }
+  .topbar .ant-btn { padding-inline: 10px; }
+  .page-heading { margin-bottom: 16px; }
+  .page-heading > div { min-width: 0; }
+  .page-heading .ant-typography { overflow-wrap: anywhere; }
+  .stats-band { margin-bottom: 12px; }
+  .table-toolbar { padding: 10px; }
+  .table-toolbar > .ant-typography { width: 100%; font-size: 12px; }
+  .room-card-actions { grid-template-columns: 1fr 1fr; }
+  .room-card-actions > :last-child { grid-column: 1 / -1; }
+  .ant-modal { max-width: calc(100vw - 24px); margin: 12px auto; }
+  .ant-modal-content { padding: 16px !important; }
 }

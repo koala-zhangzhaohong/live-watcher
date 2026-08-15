@@ -1,4 +1,4 @@
-export type RoomState = 'RUNNING' | 'PAUSED'
+export type RoomState = 'RUNNING' | 'PAUSED' | 'FAILED' | 'ENDED'
 
 export interface LiveRoom {
   liveId: string
@@ -7,6 +7,15 @@ export interface LiveRoom {
   managingInstanceId: string | null
   managedByCurrentInstance: boolean
   listeningOnThisInstance: boolean
+  lastActivityEpochMs: number | null
+  expiresAtEpochMs: number | null
+  consecutiveFailures: number
+  lastFailureReason: string | null
+  recordExpiresAtEpochMs: number
+}
+
+export interface LiveSettings {
+  inactivityTimeoutSeconds: number
 }
 
 export interface LiveInstance {
@@ -21,6 +30,8 @@ export interface LiveSummary {
   total: number
   running: number
   paused: number
+  failed: number
+  ended: number
   localListening: number
   instanceId: string
   distributed: boolean
@@ -43,6 +54,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const liveApi = {
   summary: () => request<LiveSummary>(''),
+  settings: () => request<LiveSettings>('/settings'),
+  updateSettings: (inactivityTimeoutSeconds: number) => request<LiveSettings>('/settings', {
+    method: 'PUT', body: JSON.stringify({ inactivityTimeoutSeconds }),
+  }),
+  room: (liveId: string) => request<LiveRoom>(`/${encodeURIComponent(liveId)}`),
   start: (liveId: string) => request<LiveRoom>('/start', { method: 'POST', body: JSON.stringify({ liveId }) }),
   pause: (liveId: string) => request<LiveRoom>(`/${encodeURIComponent(liveId)}/pause`, { method: 'POST' }),
   resume: (liveId: string) => request<LiveRoom>(`/${encodeURIComponent(liveId)}/resume`, { method: 'POST' }),

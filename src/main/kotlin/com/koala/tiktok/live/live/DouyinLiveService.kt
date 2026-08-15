@@ -17,12 +17,23 @@ data class LiveRoomView(
     val managingInstanceId: String?,
     val managedByCurrentInstance: Boolean,
     val listeningOnThisInstance: Boolean,
+    val lastActivityEpochMs: Long?,
+    val expiresAtEpochMs: Long?,
+    val consecutiveFailures: Long,
+    val lastFailureReason: String?,
+    val recordExpiresAtEpochMs: Long,
+)
+
+data class LiveSettings(
+    val inactivityTimeoutSeconds: Long,
 )
 
 data class LiveRoomSummary(
     val total: Int,
     val running: Int,
     val paused: Int,
+    val failed: Int,
+    val ended: Int,
     val localListening: Int,
     val instanceId: String,
     val distributed: Boolean,
@@ -61,6 +72,7 @@ class DouyinLiveService(
             "Per-request cookies are not supported in redis coordination mode; configure DY_LIVE_COOKIES on every instance."
         }
         if (!coordinator.distributed && cookies.isNotBlank()) cookieOverrides[normalizedId] = effectiveCookies
+        coordinator.recordStartSucceeded(normalizedId)
         coordinator.put(normalizedId, DesiredRoomState.RUNNING)
         reconcile()
         return room(normalizedId)!!
@@ -76,6 +88,7 @@ class DouyinLiveService(
 
     fun resume(liveId: String): Boolean {
         if (coordinator.rooms().none { it.liveId == liveId }) return false
+        coordinator.recordStartSucceeded(liveId)
         coordinator.put(liveId, DesiredRoomState.RUNNING)
         reconcile()
         return true
@@ -100,6 +113,8 @@ class DouyinLiveService(
             total = rooms.size,
             running = rooms.count { it.desiredState == DesiredRoomState.RUNNING },
             paused = rooms.count { it.desiredState == DesiredRoomState.PAUSED },
+            failed = rooms.count { it.desiredState == DesiredRoomState.FAILED },
+            ended = rooms.count { it.desiredState == DesiredRoomState.ENDED },
             localListening = clients.size,
             instanceId = coordinator.instanceId,
             distributed = coordinator.distributed,
@@ -108,13 +123,34 @@ class DouyinLiveService(
         )
     }
 
-    fun room(liveId: String): LiveRoomView? = coordinator.rooms().firstOrNull { it.liveId == liveId }?.let(::toView)
+    fun room(liveId: String, refreshActivity: Boolean = false): LiveRoomView? {
+        if (refreshActivity) coordinator.touch(liveId)
+        return coordinator.rooms().firstOrNull { it.liveId == liveId }?.let(::toView)
+    }
+
+    fun settings(): LiveSettings = LiveSettings(coordinator.inactivityTimeoutSeconds())
+
+    fun updateSettings(inactivityTimeoutSeconds: Long): LiveSettings {
+        coordinator.updateInactivityTimeoutSeconds(inactivityTimeoutSeconds)
+        reconcile()
+        return settings()
+    }
 
     fun activeLiveIds(): Set<String> = clients.keys.toSet()
 
     @Scheduled(fixedDelayString = "\${douyin.live.reconcile-seconds:5}", timeUnit = java.util.concurrent.TimeUnit.SECONDS)
     fun reconcile() {
         synchronized(lifecycleLock) {
+            val retentionExpired = runCatching { coordinator.purgeExpiredRooms() }.getOrElse { error ->
+                logger.error("Failed to purge expired live room records on instance {}", coordinator.instanceId, error)
+                emptySet()
+            }
+            if (retentionExpired.isNotEmpty()) logger.info("Purged expired live room records: liveIds={}", retentionExpired.sorted())
+            val expired = runCatching { coordinator.expireInactiveRooms() }.getOrElse { error ->
+                logger.error("Failed to expire inactive live rooms on instance {}", coordinator.instanceId, error)
+                emptySet()
+            }
+            if (expired.isNotEmpty()) logger.info("Expired inactive live rooms: liveIds={}", expired.sorted())
             val assigned =
                 runCatching { coordinator.reconcileAssignments() }.getOrElse { error ->
                     logger.error("Live room coordination failed on instance {}", coordinator.instanceId, error)
@@ -139,10 +175,14 @@ class DouyinLiveService(
             val client = clientFactory.create(liveId, DouyinAuth.prepare(cookies))
             client.start()
             clients[liveId] = client
+            coordinator.recordStartSucceeded(liveId)
             logger.info("Started Douyin live client: liveId={}, instanceId={}", liveId, coordinator.instanceId)
         }.onFailure {
+            val reason = failureReason(it)
+            val terminal = runCatching { coordinator.recordStartFailure(liveId, reason) }.getOrDefault(false)
             coordinator.release(liveId)
             logger.error("Failed to start Douyin live client: liveId={}, instanceId={}", liveId, coordinator.instanceId, it)
+            if (terminal) logger.error("Stopped retrying liveId={} after {} consecutive failures", liveId, properties.maxConsecutiveFailures)
         }
     }
 
@@ -163,7 +203,19 @@ class DouyinLiveService(
             managingInstanceId = room.managingInstanceId,
             managedByCurrentInstance = room.managingInstanceId == coordinator.instanceId,
             listeningOnThisInstance = clients.containsKey(room.liveId),
+            lastActivityEpochMs = room.lastActivityEpochMs,
+            expiresAtEpochMs = room.lastActivityEpochMs?.plus(coordinator.inactivityTimeoutSeconds() * 1000),
+            consecutiveFailures = room.consecutiveFailures,
+            lastFailureReason = room.lastFailureReason,
+            recordExpiresAtEpochMs = room.recordExpiresAtEpochMs,
         )
+
+    private fun failureReason(error: Throwable): String =
+        generateSequence(error) { it.cause }
+            .joinToString(" -> ") { cause ->
+                cause::class.simpleName + (cause.message?.takeIf(String::isNotBlank)?.let { ": $it" } ?: "")
+            }
+            .take(2000)
 
     @PreDestroy
     fun shutdown() {

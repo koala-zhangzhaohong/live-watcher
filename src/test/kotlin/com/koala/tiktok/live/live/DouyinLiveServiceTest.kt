@@ -66,9 +66,41 @@ class DouyinLiveServiceTest {
         assertEquals(0, fixture.service.summary().localListening)
     }
 
-    private fun fixture(): Fixture {
+    @Test
+    fun `status query refreshes inactivity and shorter setting expires immediately`() {
+        val fixture = fixture()
+        fixture.service.start("95182733153")
+
+        Thread.sleep(600)
+        fixture.service.room("95182733153", refreshActivity = true)
+        Thread.sleep(600)
+        fixture.service.updateSettings(1)
+        assertEquals(1, fixture.service.summary().total)
+
+        Thread.sleep(500)
+        fixture.service.reconcile()
+        assertEquals(1, fixture.service.summary().total)
+        assertEquals(1, fixture.service.summary().ended)
+        assertTrue(fixture.factory.created.single().stopped)
+    }
+
+    @Test
+    fun `stops retrying after three consecutive start failures and exposes reason`() {
+        val fixture = fixture(failStarts = true)
+        fixture.service.start("95182733153")
+        fixture.service.reconcile()
+        fixture.service.reconcile()
+
+        val room = fixture.service.room("95182733153")!!
+        assertEquals(DesiredRoomState.FAILED, room.desiredState)
+        assertEquals(3L, room.consecutiveFailures)
+        assertTrue(room.lastFailureReason!!.contains("test start failure"))
+        assertEquals(0, fixture.service.summary().localListening)
+    }
+
+    private fun fixture(failStarts: Boolean = false): Fixture {
         val properties = DouyinLiveProperties(cookies = TEST_COOKIES, instanceId = "test-instance")
-        val factory = RecordingLiveClientFactory()
+        val factory = RecordingLiveClientFactory(failStarts)
         return Fixture(
             service = DouyinLiveService(properties, factory, LocalLiveRoomCoordinator(properties)),
             factory = factory,
@@ -80,18 +112,19 @@ class DouyinLiveServiceTest {
         val factory: RecordingLiveClientFactory,
     )
 
-    private class RecordingLiveClientFactory : LiveClientFactory {
+    private class RecordingLiveClientFactory(private val failStarts: Boolean) : LiveClientFactory {
         val created = CopyOnWriteArrayList<RecordingLiveClient>()
 
         override fun create(liveId: String, auth: DouyinAuth): LiveClient =
-            RecordingLiveClient(liveId).also { created += it }
+            RecordingLiveClient(liveId, failStarts).also { created += it }
     }
 
-    private class RecordingLiveClient(val liveId: String) : LiveClient {
+    private class RecordingLiveClient(val liveId: String, private val failStart: Boolean) : LiveClient {
         @Volatile var started = false
         @Volatile var stopped = false
 
         override fun start() {
+            if (failStart) error("test start failure")
             started = true
         }
 
