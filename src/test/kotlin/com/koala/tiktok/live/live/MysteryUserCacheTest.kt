@@ -16,7 +16,6 @@ import org.springframework.data.redis.core.ValueOperations
 import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class MysteryUserCacheTest {
     private val redis = mock(StringRedisTemplate::class.java)
@@ -94,8 +93,13 @@ class MysteryUserCacheTest {
     }
 
     @Test
-    fun `stores bare mystery user under room random key`() {
-        val user = LiveProto.User.newBuilder().setId(123456).setNickname("神秘人").build()
+    fun `stores bare mystery user under room sec uid key`() {
+        val user =
+            LiveProto.User.newBuilder()
+                .setId(123456)
+                .setNickname("神秘人")
+                .setSecUid("MS4wLjABAAAA-bare-user")
+                .build()
 
         cache.cacheIfNeeded("99887766", user)
 
@@ -105,7 +109,10 @@ class MysteryUserCacheTest {
             org.mockito.ArgumentMatchers.anyString(),
             org.mockito.ArgumentMatchers.any(Duration::class.java),
         )
-        assertTrue(keyCaptor.value.matches(Regex("tiktok-live:test:user:data:99887766:mystery-person:[a-f0-9]{32}")))
+        assertEquals(
+            "tiktok-live:test:user:data:99887766:mystery-person:MS4wLjABAAAA-bare-user",
+            keyCaptor.value,
+        )
     }
 
     @Test
@@ -119,6 +126,7 @@ class MysteryUserCacheTest {
 
         cache.cacheIfNeeded("99887766", user)
 
-        verify(valueOperations, never()).setIfAbsent(anyString(), anyString(), org.mockito.ArgumentMatchers.any(Duration::class.java))
+        verify(valueOperations, never()).set(anyString(), anyString())
+        verify(valueOperations, never()).set(anyString(), anyString(), org.mockito.ArgumentMatchers.any(Duration::class.java))
     }
 }

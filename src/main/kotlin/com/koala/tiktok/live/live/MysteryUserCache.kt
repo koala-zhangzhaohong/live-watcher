@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Component
 import java.time.Duration
-import java.util.UUID
 
 data class CachedMysteryUser(
     val id: Long,
@@ -65,18 +64,18 @@ class MysteryUserCache(
         }
         if (roomId.isBlank()) return
         val type = MysteryUserType.fromBareNickname(user.nickname) ?: return
+        if (user.secUid.isBlank()) {
+            logger.warn("Skipping bare mystery user without sec_uid: roomId={}, nickname={}, userId={}", roomId, user.nickname, user.id)
+            return
+        }
 
         runCatching {
             val root = typeRoot(roomId, type)
-            val identityKey = "$root:identity:${userIdentity(user)}"
-            val generatedDataKey = "$root:${UUID.randomUUID().toString().replace("-", "")}"
             val duration = Duration.ofSeconds(properties.roomRetentionSeconds)
-            val created = redis.opsForValue().setIfAbsent(identityKey, generatedDataKey, duration) == true
-            val dataKey = if (created) generatedDataKey else redis.opsForValue().get(identityKey) ?: generatedDataKey
+            val dataKey = "$root:${user.secUid}"
             val previous = readUser(dataKey)
             val value = CachedMysteryUser(user.id, user.nickname, user.shortId, user.secUid, extraInfo ?: previous?.extraInfo)
 
-            redis.expire(identityKey, duration)
             redis.opsForValue().set(dataKey, objectMapper.writeValueAsString(value), duration)
             redis.opsForSet().add(indexKey(root), dataKey)
             redis.expire(indexKey(root), duration)
@@ -128,12 +127,6 @@ class MysteryUserCache(
         "${properties.redisKeyPrefix}:user:data:$roomId:${type.keySegment}"
 
     private fun indexKey(root: String) = "$root:index"
-
-    private fun userIdentity(user: LiveProto.User): String = when {
-        user.id != 0L -> user.id.toString()
-        user.secUid.isNotBlank() -> user.secUid.hashCode().toUInt().toString(16)
-        else -> "${user.shortId}:${user.nickname}".hashCode().toUInt().toString(16)
-    }
 
     private fun suffixedKeySegment(nickname: String): String {
         val match = SUFFIXED_NICKNAME.matchEntire(nickname) ?: error("Unsupported suffixed nickname: $nickname")
