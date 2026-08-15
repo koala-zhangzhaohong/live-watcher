@@ -41,11 +41,18 @@ class MysteryUserCacheTest {
     @Test
     fun `only classifies bare mystery nicknames for room lists`() {
         assertEquals(MysteryUserType.MYSTERY_PERSON, MysteryUserType.fromBareNickname("神秘人"))
+        assertEquals(MysteryUserType.MYSTERY_PERSON, MysteryUserType.fromBareNickname("神秘人一阶"))
+        assertEquals(MysteryUserType.MYSTERY_PERSON, MysteryUserType.fromBareNickname("神秘人七阶"))
+        assertEquals(MysteryUserType.MYSTERY_PERSON, MysteryUserType.fromBareNickname("神秘人.X"))
+        assertEquals(MysteryUserType.MYSTERY_PERSON, MysteryUserType.fromBareNickname("神秘人·X"))
         assertEquals(MysteryUserType.MYSTERY_GUEST, MysteryUserType.fromBareNickname("神秘嘉宾"))
         assertEquals(MysteryUserType.DOU, MysteryUserType.fromBareNickname("dou"))
         assertNull(MysteryUserType.fromBareNickname("神秘人23823782"))
         assertNull(MysteryUserType.fromBareNickname("神秘嘉宾8728378293"))
         assertNull(MysteryUserType.fromBareNickname("dou2283289"))
+        assertNull(MysteryUserType.fromBareNickname("神秘人八阶"))
+        assertNull(MysteryUserType.fromBareNickname("神秘人.123"))
+        assertNull(MysteryUserType.fromBareNickname("神秘人.测试"))
         assertNull(MysteryUserType.fromBareNickname("普通用户"))
     }
 
@@ -64,13 +71,13 @@ class MysteryUserCacheTest {
 
         verify(valueOperations).set(
             "tiktok-live:test:user:data:dou_2283289",
-            "{\"id\":123456,\"nickname\":\"dou2283289\",\"short_id\":654321,\"sec_uid\":\"MS4wLjABAAAA-test\",\"extra_info\":null}",
+            "{\"id\":123456,\"nickname\":\"dou2283289\",\"short_id\":654321,\"sec_uid\":\"MS4wLjABAAAA-test\",\"extra_info\":[]}",
             Duration.ofSeconds(properties.roomRetentionSeconds),
         )
     }
 
     @Test
-    fun `gift info overwrites extra info and refreshes suffixed user expiry`() {
+    fun `gift info is prepended to history and refreshes suffixed user expiry`() {
         val key = "tiktok-live:test:user:data:mystery-person_23823782"
         `when`(valueOperations.get(key)).thenReturn(
             "{\"id\":123456,\"nickname\":\"神秘人23823782\",\"short_id\":654321,\"sec_uid\":\"sec\",\"extra_info\":\"旧礼物\"}",
@@ -85,11 +92,17 @@ class MysteryUserCacheTest {
 
         cache.cacheIfNeeded("99887766", user, "新礼物")
 
+        val valueCaptor = ArgumentCaptor.forClass(String::class.java)
         verify(valueOperations).set(
-            key,
-            "{\"id\":123456,\"nickname\":\"神秘人23823782\",\"short_id\":654321,\"sec_uid\":\"sec\",\"extra_info\":\"新礼物\"}",
-            Duration.ofSeconds(properties.roomRetentionSeconds),
+            org.mockito.ArgumentMatchers.eq(key),
+            valueCaptor.capture(),
+            org.mockito.ArgumentMatchers.any(Duration::class.java),
         )
+        val stored = jacksonObjectMapper().readTree(valueCaptor.value)
+        assertEquals(2, stored["extra_info"].size())
+        assertEquals("新礼物", stored["extra_info"][0]["content"].asText())
+        assertEquals(true, stored["extra_info"][0]["gift_time"].asLong() > 0)
+        assertEquals("旧礼物", stored["extra_info"][1]["content"].asText())
     }
 
     @Test

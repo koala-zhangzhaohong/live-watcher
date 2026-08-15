@@ -17,7 +17,13 @@ data class CachedMysteryUser(
     @JsonProperty("sec_uid")
     val secUid: String,
     @JsonProperty("extra_info")
-    val extraInfo: String? = null,
+    val extraInfo: List<GiftExtraInfo> = emptyList(),
+)
+
+data class GiftExtraInfo(
+    @JsonProperty("gift_time")
+    val giftTime: Long,
+    val content: String,
 )
 
 enum class MysteryUserType(val keySegment: String) {
@@ -26,12 +32,13 @@ enum class MysteryUserType(val keySegment: String) {
     DOU("dou");
 
     companion object {
-        fun fromBareNickname(nickname: String): MysteryUserType? = when (nickname) {
-            "神秘嘉宾" -> MYSTERY_GUEST
-            "神秘人" -> MYSTERY_PERSON
-            "dou" -> DOU
-            else -> null
-        }
+        fun fromBareNickname(nickname: String): MysteryUserType? =
+            when {
+                nickname == "神秘嘉宾" -> MYSTERY_GUEST
+                MYSTERY_PERSON_ROOM_NICKNAME.matches(nickname) -> MYSTERY_PERSON
+                nickname == "dou" -> DOU
+                else -> null
+            }
 
         fun fromQuery(value: String): MysteryUserType? = entries.firstOrNull {
             value.equals(it.keySegment, ignoreCase = true) ||
@@ -41,6 +48,8 @@ enum class MysteryUserType(val keySegment: String) {
                     DOU -> "dou"
                 }
         }
+
+        private val MYSTERY_PERSON_ROOM_NICKNAME = Regex("^神秘人(?:[一二三四五六七]阶|[.·・]X)?$")
     }
 }
 
@@ -74,7 +83,7 @@ class MysteryUserCache(
             val duration = Duration.ofSeconds(properties.roomRetentionSeconds)
             val dataKey = "$root:${user.secUid}"
             val previous = readUser(dataKey)
-            val value = CachedMysteryUser(user.id, user.nickname, user.shortId, user.secUid, extraInfo ?: previous?.extraInfo)
+            val value = CachedMysteryUser(user.id, user.nickname, user.shortId, user.secUid, mergeExtraInfo(previous, extraInfo))
 
             redis.opsForValue().set(dataKey, objectMapper.writeValueAsString(value), duration)
             redis.opsForSet().add(indexKey(root), dataKey)
@@ -91,7 +100,7 @@ class MysteryUserCache(
         runCatching {
             val key = "${properties.redisKeyPrefix}:user:data:${suffixedKeySegment(user.nickname)}"
             val previous = readUser(key)
-            val value = CachedMysteryUser(user.id, user.nickname, user.shortId, user.secUid, extraInfo ?: previous?.extraInfo)
+            val value = CachedMysteryUser(user.id, user.nickname, user.shortId, user.secUid, mergeExtraInfo(previous, extraInfo))
             redis.opsForValue().set(
                 key,
                 objectMapper.writeValueAsString(value),
@@ -103,9 +112,39 @@ class MysteryUserCache(
     }
 
     private fun readUser(key: String): CachedMysteryUser? =
-        redis.opsForValue().get(key)?.let { value ->
-            runCatching { objectMapper.readValue(value, CachedMysteryUser::class.java) }.getOrNull()
-        }
+        redis.opsForValue().get(key)?.let(::readUserJson)
+
+    private fun readUserJson(value: String): CachedMysteryUser? =
+        runCatching {
+            val root = objectMapper.readTree(value)
+            val extraInfoNode = root.get("extra_info")
+            val extraInfo =
+                when {
+                    extraInfoNode == null || extraInfoNode.isNull -> emptyList()
+                    extraInfoNode.isArray ->
+                        extraInfoNode.mapNotNull { item ->
+                            val content = item.get("content")?.asText()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                            GiftExtraInfo(item.get("gift_time")?.asLong() ?: 0L, content)
+                        }
+                    // Compatibility with records written before extra_info became an array.
+                    extraInfoNode.isTextual && extraInfoNode.asText().isNotBlank() ->
+                        listOf(GiftExtraInfo(0L, extraInfoNode.asText()))
+                    else -> emptyList()
+                }
+            CachedMysteryUser(
+                id = root.path("id").asLong(),
+                nickname = root.path("nickname").asText(),
+                shortId = root.path("short_id").asLong(),
+                secUid = root.path("sec_uid").asText(),
+                extraInfo = extraInfo.sortedByDescending(GiftExtraInfo::giftTime).take(MAX_GIFT_HISTORY),
+            )
+        }.getOrNull()
+
+    private fun mergeExtraInfo(previous: CachedMysteryUser?, newContent: String?): List<GiftExtraInfo> {
+        val history = previous?.extraInfo.orEmpty()
+        if (newContent.isNullOrBlank()) return history
+        return (listOf(GiftExtraInfo(System.currentTimeMillis(), newContent)) + history).take(MAX_GIFT_HISTORY)
+    }
 
     fun findByType(roomId: String, type: MysteryUserType): List<CachedMysteryUser> {
         val indexKey = indexKey(typeRoot(roomId, type))
@@ -117,10 +156,10 @@ class MysteryUserCache(
         if (expiredKeys.isNotEmpty()) redis.opsForSet().remove(indexKey, *expiredKeys.toTypedArray())
 
         return values.filterNotNull().mapNotNull { value ->
-            runCatching { objectMapper.readValue(value, CachedMysteryUser::class.java) }
+            runCatching { readUserJson(value) }
                 .onFailure { logger.warn("Ignoring invalid cached mystery user JSON", it) }
                 .getOrNull()
-        }.sortedWith(compareBy(CachedMysteryUser::nickname, CachedMysteryUser::id))
+        }.filterNotNull().sortedWith(compareBy(CachedMysteryUser::nickname, CachedMysteryUser::id))
     }
 
     fun findBySuffixedNickname(nickname: String): CachedMysteryUser? {
@@ -147,6 +186,7 @@ class MysteryUserCache(
 
     private companion object {
         const val MASKED_USER_ID = 111111L
+        const val MAX_GIFT_HISTORY = 10
         val SUFFIXED_NICKNAME = Regex("^(神秘人|神秘嘉宾|dou)(\\d+)$")
     }
 }
