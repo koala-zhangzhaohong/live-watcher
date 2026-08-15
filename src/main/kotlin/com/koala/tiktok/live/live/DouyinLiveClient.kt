@@ -24,6 +24,7 @@ class DouyinLiveClient(
     private val apiClient: DouyinApiClient,
     private val properties: DouyinLiveProperties,
     private val okHttpClient: okhttp3.OkHttpClient,
+    private val mysteryUserCache: MysteryUserCache,
 ) : WebSocketListener(),
     LiveClient {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -33,6 +34,8 @@ class DouyinLiveClient(
     private var heartbeat: ScheduledFuture<*>? = null
     private var giftInfo: GiftInfoModel? = null
     private var giftDiamondCounts: Map<Long, Long> = emptyMap()
+    @Volatile
+    private var currentRoomId: String = ""
 
     override fun start() {
         stopped.set(false)
@@ -58,6 +61,7 @@ class DouyinLiveClient(
                 ?.associate { it.id to it.diamondCount }
                 .orEmpty()
         val roomInfo = apiClient.getLiveInfo(auth, liveId)
+        currentRoomId = roomInfo.roomId
         val detail = apiClient.getWebcastDetail(auth, roomInfo.userId, roomInfo.roomId, "https://live.douyin.com/$liveId")
         val initialResponse = LiveProto.LiveResponse.parseFrom(detail)
         val wsUrl = apiClient.buildWebSocketUrl(roomInfo, initialResponse.cursor, initialResponse.internalExt)
@@ -149,20 +153,28 @@ class DouyinLiveClient(
         when (item.method) {
             "WebcastGiftMessage" -> {
                 val message = LiveProto.GiftMessage.parseFrom(item.payload)
+                val giftName = if (message.groupCount > 1) "[ ${message.gift.name} * ${message.groupCount} ]" else message.gift.name
+                val diamondCount = giftDiamondCounts[message.gift.id] ?: 0
+                val extraInfo =
+                    "[礼物] SEC_UID = ${message.user.secUid} - ${message.user.nickname} " +
+                        "送给 ${message.toUser.secUid} - ${message.toUser.nickname} $giftName x ${message.comboCount} " +
+                        "[ $diamondCount 钻石 ]"
+                mysteryUserCache.cacheIfNeeded(currentRoomId, message.user, extraInfo)
                 logger.info(
                     "[礼物] SEC_UID = {} - {} 送给 {} - {} {} x {} [ {} 钻石 ]",
                     message.user.secUid,
                     message.user.nickname,
                     message.toUser.secUid,
                     message.toUser.nickname,
-                    if (message.groupCount > 1) "[ ${message.gift.name} * ${message.groupCount} ]" else message.gift.name,
+                    giftName,
                     message.comboCount,
-                    giftDiamondCounts[message.gift.id] ?: 0,
+                    diamondCount,
                 )
             }
 
             "WebcastChatMessage" -> {
                 val message = LiveProto.ChatMessage.parseFrom(item.payload)
+                mysteryUserCache.cacheIfNeeded(currentRoomId, message.user)
                 logger.info("[消息] SEC_UID = {} - {} : {}", message.user.secUid, message.user.nickname, message.content)
             }
 

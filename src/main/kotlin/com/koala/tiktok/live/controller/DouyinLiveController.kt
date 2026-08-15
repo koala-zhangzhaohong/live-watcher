@@ -5,6 +5,9 @@ import com.koala.tiktok.live.live.LiveRoomSummary
 import com.koala.tiktok.live.live.LiveRoomView
 import com.koala.tiktok.live.live.LiveSettings
 import com.koala.tiktok.live.live.CoordinatedInstance
+import com.koala.tiktok.live.live.CachedMysteryUser
+import com.koala.tiktok.live.live.MysteryUserCache
+import com.koala.tiktok.live.live.MysteryUserType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -28,6 +31,7 @@ data class UpdateLiveSettingsRequest(
 @RequestMapping("/api/douyin/live")
 class DouyinLiveController(
     private val liveService: DouyinLiveService,
+    private val mysteryUserCache: MysteryUserCache,
 ) {
     @PostMapping("/start")
     fun start(@RequestBody request: StartLiveRequest): LiveRoomView =
@@ -67,4 +71,13 @@ class DouyinLiveController(
 
     @GetMapping("/instances")
     fun instances(): List<CoordinatedInstance> = liveService.summary().instances
+
+    @GetMapping("/users/{roomId}/{type}")
+    fun mysteryUsers(
+        @PathVariable roomId: String,
+        @PathVariable type: String,
+    ): ResponseEntity<List<CachedMysteryUser>> {
+        val resolvedType = MysteryUserType.fromQuery(type) ?: return ResponseEntity.badRequest().build()
+        return ResponseEntity.ok(mysteryUserCache.findByType(roomId, resolvedType))
+    }
 }

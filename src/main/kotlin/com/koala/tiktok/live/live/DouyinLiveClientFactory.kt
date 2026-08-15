@@ -18,9 +18,10 @@ class DouyinLiveClientFactory(
     private val apiClient: DouyinApiClient,
     private val properties: DouyinLiveProperties,
     private val okHttpClient: OkHttpClient,
+    private val mysteryUserCache: MysteryUserCache,
 ) : LiveClientFactory {
     override fun create(
         liveId: String,
         auth: DouyinAuth,
-    ): LiveClient = DouyinLiveClient(liveId, auth, apiClient, properties, okHttpClient)
+    ): LiveClient = DouyinLiveClient(liveId, auth, apiClient, properties, okHttpClient, mysteryUserCache)
 }
