@@ -11,7 +11,7 @@ data class DouyinAuth private constructor(
         fun prepare(cookieStr: String): DouyinAuth {
             val cookies = DouyinUtil.parseCookies(cookieStr)
             val msToken = cookies["msToken"] ?: DouyinUtil.generateMsToken()
-            cookies["msToken"] = msToken
+            cookies.remove("msToken")
             val normalizedCookie = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
             return DouyinAuth(cookies, normalizedCookie, msToken)
         }

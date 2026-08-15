@@ -1,6 +1,12 @@
 server:
   port: 8080
 
+spring:
+  application:
+    name: tiktok-live
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:test}
+
 douyin:
   live:
     auto-start: false
@@ -8,3 +14,9 @@ douyin:
     cookies: ${DY_LIVE_COOKIES:}
     reconnect-on-close: true
     heartbeat-seconds: 5
+    coordination-mode: ${DY_LIVE_COORDINATION_MODE:local}
+    instance-id: ${DY_LIVE_INSTANCE_ID:}
+    reconcile-seconds: 5
+    instance-timeout-seconds: 20
+    lease-seconds: 15
+    redis-key-prefix: ${DY_LIVE_REDIS_KEY_PREFIX:douyin:live:${spring.profiles.active}}

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.koala.tiktok.live.auth.DouyinAuth
 import com.koala.tiktok.live.model.GiftInfoModel
 import com.koala.tiktok.live.signature.SignatureService
+import com.koala.tiktok.live.util.BrowserFingerprint
 import com.koala.tiktok.live.util.DouyinUtil
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -31,6 +32,7 @@ class DouyinApiClient(
     private val objectMapper: ObjectMapper,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
+    private val browserProfile = BrowserFingerprint.profile
 
     fun getLiveInfo(
         auth: DouyinAuth,
@@ -101,7 +103,7 @@ class DouyinApiClient(
                 "screen_width" to "2560",
                 "screen_height" to "1440",
                 "browser_language" to "en",
-                "browser_platform" to "Win32",
+                "browser_platform" to browserProfile.platform,
                 "browser_name" to "Mozilla",
                 "browser_version" to
                     "5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
@@ -168,7 +170,7 @@ class DouyinApiClient(
                 "browser_language" to "zh-CN",
                 "browser_platform" to "Win32",
                 "browser_name" to "Mozilla",
-                "browser_version" to USER_AGENT.substringAfter("Mozilla/"),
+                "browser_version" to browserProfile.ua.substringAfter("Mozilla/"),
                 "browser_online" to "true",
                 "tz_name" to "Etc/GMT-8",
                 "cursor" to cursor,
@@ -197,7 +199,7 @@ class DouyinApiClient(
             .Builder()
             .add("Pragma", "no-cache")
             .add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6")
-            .add("User-Agent", USER_AGENT)
+            .add("User-Agent", browserProfile.ua)
             .add("Upgrade", "websocket")
             .add("Cache-Control", "no-cache")
             .add("Connection", "Upgrade")
@@ -243,16 +245,16 @@ class DouyinApiClient(
             .add("pragma", "no-cache")
             .add("priority", "u=0, i")
             .add("referer", "https://live.douyin.com/?from_nav=1")
-            .add("sec-ch-ua", "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Google Chrome\";v=\"138\"")
+            .add("sec-ch-ua", browserProfile.secChUa)
             .add("sec-ch-ua-mobile", "?0")
-            .add("sec-ch-ua-platform", "\"Windows\"")
+            .add("sec-ch-ua-platform", browserProfile.secChUaPlatform)
             .add("sec-fetch-dest", "empty")
             .add("sec-fetch-mode", "navigate")
             .add("sec-fetch-site", "same-origin")
             .add("upgrade-insecure-requests", "1")
             .add(
                 "user-agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+                browserProfile.ua,
             ).build()
 
     private fun formHeaders(
@@ -262,7 +264,7 @@ class DouyinApiClient(
         val builder =
             Headers
                 .Builder()
-                .add("user-agent", USER_AGENT)
+                .add("user-agent", browserProfile.ua)
                 .add("cache-control", "no-cache")
                 .add("pragma", "no-cache")
                 .add("accept", "application/json, text/plain, */*")
@@ -280,7 +282,7 @@ class DouyinApiClient(
         val builder =
             Headers
                 .Builder()
-                .add("user-agent", USER_AGENT)
+                .add("user-agent", browserProfile.ua)
                 .add("accept", "application/json, text/plain, */*")
                 .add("accept-language", "zh-CN,zh;q=0.9,en;q=0.8")
                 .add("cache-control", "no-cache")
@@ -306,13 +308,13 @@ class DouyinApiClient(
                 .header("pragma", "no-cache")
                 .header("priority", "u=1, i")
                 .header("referer", "https://www.douyin.com/?recommend=1")
-                .header("sec-ch-ua", "\"Microsoft Edge\";v=\"125\", \"Chromium\";v=\"125\", \"Not.A/Brand\";v=\"24\"")
+                .header("sec-ch-ua", browserProfile.secChUa)
                 .header("sec-ch-ua-mobile", "?0")
-                .header("sec-ch-ua-platform", "\"Windows\"")
+                .header("sec-ch-ua-platform", browserProfile.secChUaPlatform)
                 .header("sec-fetch-dest", "empty")
                 .header("sec-fetch-mode", "cors")
                 .header("sec-fetch-site", "same-origin")
-                .header("user-agent", USER_AGENT)
+                .header("user-agent", browserProfile.ua)
                 .header("x-secsdk-csrf-request", "1")
                 .header("x-secsdk-csrf-version", "1.2.22")
                 .build()
@@ -325,9 +327,5 @@ class DouyinApiClient(
                     ?.getOrNull(1)
             }
         }.getOrNull()
-    }
-
-    companion object {
-        const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0"
     }
 }

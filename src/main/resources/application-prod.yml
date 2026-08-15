@@ -1,0 +1,23 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  data:
+    redis:
+      database: ${PROD_REDIS_DATABASE:0}
+      host: ${REDIS_HOST:116.255.208.81}
+      port: ${REDIS_PORT:55000}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3s
+      connect-timeout: 3s
+      lettuce:
+        pool:
+          max-active: 16
+          max-wait: 2s
+          max-idle: 8
+          min-idle: 2
+
+douyin:
+  live:
+    coordination-mode: ${DY_LIVE_COORDINATION_MODE:redis}
+    redis-key-prefix: ${DY_LIVE_REDIS_KEY_PREFIX:tiktok-live:prod}

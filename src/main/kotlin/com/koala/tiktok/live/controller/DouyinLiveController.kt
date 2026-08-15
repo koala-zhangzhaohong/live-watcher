@@ -1,6 +1,9 @@
 package com.koala.tiktok.live.controller
 
 import com.koala.tiktok.live.live.DouyinLiveService
+import com.koala.tiktok.live.live.LiveRoomSummary
+import com.koala.tiktok.live.live.LiveRoomView
+import com.koala.tiktok.live.live.CoordinatedInstance
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -21,31 +24,34 @@ class DouyinLiveController(
     private val liveService: DouyinLiveService,
 ) {
     @PostMapping("/start")
-    fun start(
-        @RequestBody request: StartLiveRequest,
-    ): Map<String, Any> {
-        val liveId = liveService.start(request.liveId, request.cookies ?: "")
-        return mapOf("liveId" to liveId, "status" to "started")
-    }
+    fun start(@RequestBody request: StartLiveRequest): LiveRoomView =
+        liveService.start(request.liveId, request.cookies ?: "")
+
+    @PostMapping("/{liveId}/pause")
+    fun pause(@PathVariable liveId: String): ResponseEntity<LiveRoomView> =
+        if (liveService.pause(liveId)) ResponseEntity.ok(liveService.room(liveId)!!) else ResponseEntity.notFound().build()
+
+    @PostMapping("/{liveId}/resume")
+    fun resume(@PathVariable liveId: String): ResponseEntity<LiveRoomView> =
+        if (liveService.resume(liveId)) ResponseEntity.ok(liveService.room(liveId)!!) else ResponseEntity.notFound().build()
 
     @DeleteMapping("/{liveId}")
-    fun stop(
-        @PathVariable liveId: String,
-    ): ResponseEntity<Map<String, Any>> {
-        val stopped = liveService.stop(liveId)
-        return if (stopped) {
-            ResponseEntity.ok(mapOf("liveId" to liveId, "status" to "stopped"))
-        } else {
-            ResponseEntity.status(404).body(mapOf("liveId" to liveId, "status" to "not_found"))
-        }
-    }
+    fun remove(@PathVariable liveId: String): ResponseEntity<Void> =
+        if (liveService.remove(liveId)) ResponseEntity.noContent().build() else ResponseEntity.notFound().build()
 
     @DeleteMapping
-    fun stopAll(): Map<String, Any> {
-        liveService.stopAll()
-        return mapOf("status" to "stopped")
+    fun removeAll(): ResponseEntity<Void> {
+        liveService.removeAll()
+        return ResponseEntity.noContent().build()
     }
 
     @GetMapping
-    fun active(): Map<String, Any> = mapOf("liveIds" to liveService.activeLiveIds())
+    fun summary(): LiveRoomSummary = liveService.summary()
+
+    @GetMapping("/{liveId}")
+    fun room(@PathVariable liveId: String): ResponseEntity<LiveRoomView> =
+        liveService.room(liveId)?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
+
+    @GetMapping("/instances")
+    fun instances(): List<CoordinatedInstance> = liveService.summary().instances
 }

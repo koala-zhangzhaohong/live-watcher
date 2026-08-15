@@ -24,7 +24,8 @@ class DouyinLiveClient(
     private val apiClient: DouyinApiClient,
     private val properties: DouyinLiveProperties,
     private val okHttpClient: okhttp3.OkHttpClient,
-) : WebSocketListener() {
+) : WebSocketListener(),
+    LiveClient {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
     private val stopped = AtomicBoolean(false)
@@ -33,12 +34,12 @@ class DouyinLiveClient(
     private var giftInfo: GiftInfoModel? = null
     private var giftDiamondCounts: Map<Long, Long> = emptyMap()
 
-    fun start() {
+    override fun start() {
         stopped.set(false)
         startWebSocket()
     }
 
-    fun stop() {
+    override fun stop() {
         stopped.set(true)
         heartbeat?.cancel(true)
         webSocket?.close(1000, "client stopped")
@@ -188,9 +189,7 @@ class DouyinLiveClient(
                 logger.info("[房间信息] {}", message.displayLong)
             }
 
-            else -> {
-                logger.info("[未处理消息] {}", item.method)
-            }
+            else -> {}
         }
     }
 }
