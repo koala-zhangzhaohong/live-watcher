@@ -98,7 +98,10 @@ class DouyinLiveService(
     }
 
     fun summary(): LiveRoomSummary {
-        val rooms = coordinator.rooms().map(::toView)
+        val rooms =
+            coordinator.rooms()
+                .map(::toView)
+                .sortedWith(compareByDescending<LiveRoomView> { it.recordExpiresAtEpochMs }.thenByDescending { it.liveId })
         return LiveRoomSummary(
             total = rooms.size,
             running = rooms.count { it.desiredState == DesiredRoomState.RUNNING },

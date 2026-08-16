@@ -50,6 +50,16 @@ class DouyinLiveServiceTest {
     }
 
     @Test
+    fun `summary orders newest room first`() {
+        val fixture = fixture()
+        fixture.service.start("95182733153")
+        Thread.sleep(5)
+        fixture.service.start("95182744151")
+
+        assertEquals(listOf("95182744151", "95182733153"), fixture.service.summary().rooms.map { it.liveId })
+    }
+
+    @Test
     fun `pauses resumes and removes a room`() {
         val fixture = fixture()
         fixture.service.start("95182733153")
