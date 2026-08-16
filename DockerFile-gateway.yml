@@ -1,0 +1,140 @@
+services:
+  traefik-otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: tiktok-live-traefik-otel-lgtm
+    restart: always
+    ports:
+      - "57003:3000"
+    environment:
+      TZ: Asia/Shanghai
+      GF_ALLOW_EMBEDDING: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_FEATURE_TOGGLES_ENABLE: provisioning,kubernetesDashboards
+      LOKI_ARGS: --pattern-ingester.enabled=true
+    volumes:
+      - /www/docker/otel-lgtm-live/data:/data
+      - /www/docker/otel-lgtm-live/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards
+      - /www/docker/otel-lgtm-live/loki/config/loki-config.yaml:/otel-lgtm/loki-config.yaml
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
+  traefik:
+    image: traefik:v3.7.7
+    container_name: tiktok-live-traefik-gateway
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "57000:80"
+      - "57443:443/tcp"
+      - "57443:443/udp"
+      - "57001:8080"
+      - "57002:8082"
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /www/docker/live/traefik.yml:/traefik.yml:ro
+      - /www/docker/traefik/v2/logs:/etc/traefik/logs
+      - /www/docker/traefik/v2/config:/etc/traefik/config
+      - /www/docker/traefik/v2/certs:/etc/traefik/certs
+      - /etc/localtime:/etc/localtime
+    depends_on:
+      - traefik-otel-lgtm
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
+  tiktok-live-backend-1:
+    image: tiktok-live-service:${TIKTOK_LIVE_IMAGE_VERSION:-latest}
+    container_name: tiktok-live-backend-1
+    restart: always
+    environment: &backend-environment
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+    depends_on:
+      - traefik
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
+  tiktok-live-backend-2:
+    image: tiktok-live-service:${TIKTOK_LIVE_IMAGE_VERSION:-latest}
+    container_name: tiktok-live-backend-2
+    restart: always
+    environment: *backend-environment
+    depends_on:
+      - traefik
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
+  tiktok-live-backend-3:
+    image: tiktok-live-service:${TIKTOK_LIVE_IMAGE_VERSION:-latest}
+    container_name: tiktok-live-backend-3
+    restart: always
+    environment: *backend-environment
+    depends_on:
+      - traefik
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
+  tiktok-live-web-1:
+    image: tiktok-live-web:${TIKTOK_LIVE_IMAGE_VERSION:-latest}
+    container_name: tiktok-live-web-1
+    restart: always
+    environment: &web-environment
+      TZ: Asia/Shanghai
+      BACKEND_UPSTREAM: http://tiktok-live-backend-1:8080
+    depends_on:
+      - traefik
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
+  tiktok-live-web-2:
+    image: tiktok-live-web:${TIKTOK_LIVE_IMAGE_VERSION:-latest}
+    container_name: tiktok-live-web-2
+    restart: always
+    environment: *web-environment
+    depends_on:
+      - traefik
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
+networks:
+  traefik-gateway-v2:
+    name: traefik-gateway-v2
+    external: true

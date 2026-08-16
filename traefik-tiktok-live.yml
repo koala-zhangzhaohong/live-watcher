@@ -1,0 +1,54 @@
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+log:
+  level: INFO
+  filePath: /etc/traefik/logs/traefik.log
+
+accessLog:
+  filePath: /etc/traefik/logs/access.log
+  format: json
+  bufferingSize: 100
+
+api:
+  dashboard: true
+  debug: true
+  insecure: true
+
+ping:
+  entryPoint: middleware
+
+entryPoints:
+  web:
+    address: :80
+  websecure:
+    address: :443
+    http3: {}
+  middleware:
+    address: :8082
+
+metrics:
+  addInternals: true
+  otlp:
+    grpc:
+      endpoint: traefik-otel-lgtm:4317
+      insecure: true
+    serviceName: tiktok-live-traefik
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+    pushInterval: 5s
+
+tracing:
+  otlp:
+    grpc:
+      endpoint: traefik-otel-lgtm:4317
+      insecure: true
+  sampleRate: 1.0
+  serviceName: tiktok-live-traefik
+
+providers:
+  file:
+    directory: /etc/traefik/config
+    watch: true

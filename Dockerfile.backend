@@ -1,0 +1,23 @@
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /workspace
+
+COPY pom.xml ./
+COPY .mvn .mvn
+COPY src src
+RUN mvn -B -DskipTests package
+
+FROM eclipse-temurin:21-jre
+ARG TIKTOK_LIVE_VERSION=dev
+ARG SPRING_PROFILES_ACTIVE=prod
+ENV TZ=Asia/Shanghai
+ENV JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Shanghai"
+ENV SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+WORKDIR /app
+
+COPY --from=build /workspace/target/tiktok-live-0.0.1-SNAPSHOT.jar /app/app.jar
+
+LABEL org.opencontainers.image.title="TikTok Live Service"
+LABEL org.opencontainers.image.version="${TIKTOK_LIVE_VERSION}"
+
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

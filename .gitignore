@@ -33,6 +33,7 @@ dist/
 *.tsbuildinfo
 .vite/
 coverage/
+image-output/
 
 ### Local environment and secrets ###
 .env

@@ -95,8 +95,8 @@ class DouyinLiveController(
     }
 
     @GetMapping("/users/{nickname}")
-    fun mysteryUser(@PathVariable nickname: String): ResponseEntity<CachedMysteryUser> =
+    fun mysteryUser(@PathVariable nickname: String): ResponseEntity<Any> =
         mysteryUserCache.findBySuffixedNickname(nickname)
-            ?.let { ResponseEntity.ok(it) }
-            ?: ResponseEntity.notFound().build()
+            ?.let { ResponseEntity.ok(it as Any) }
+            ?: ResponseEntity.ok(emptyMap<String, Any>())
 }

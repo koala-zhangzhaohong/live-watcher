@@ -1,0 +1,45 @@
+http:
+  routers:
+    tiktok-live-api:
+      entryPoints: [web]
+      rule: "Path(`/api`) || PathPrefix(`/api/`)"
+      priority: 100
+      middlewares: [tiktok-live-compress]
+      service: tiktok-live-backend
+
+    tiktok-live-web:
+      entryPoints: [web]
+      rule: "PathPrefix(`/`)"
+      priority: 50
+      middlewares: [tiktok-live-compress]
+      service: tiktok-live-frontend
+
+  middlewares:
+    tiktok-live-compress:
+      compress:
+        defaultEncoding: gzip
+        minResponseBodyBytes: 1024
+
+  services:
+    tiktok-live-backend:
+      loadBalancer:
+        strategy: wrr
+        healthCheck:
+          path: /api/douyin/live
+          interval: 10s
+          timeout: 5s
+        servers:
+          - url: "http://tiktok-live-backend-1:8080"
+          - url: "http://tiktok-live-backend-2:8080"
+          - url: "http://tiktok-live-backend-3:8080"
+
+    tiktok-live-frontend:
+      loadBalancer:
+        strategy: wrr
+        healthCheck:
+          path: /
+          interval: 10s
+          timeout: 3s
+        servers:
+          - url: "http://tiktok-live-web-1:80"
+          - url: "http://tiktok-live-web-2:80"

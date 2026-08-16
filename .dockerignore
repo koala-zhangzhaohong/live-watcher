@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+target
+build
+out
+web/node_modules
+web/dist
+image-output
+*.log
+.DS_Store
