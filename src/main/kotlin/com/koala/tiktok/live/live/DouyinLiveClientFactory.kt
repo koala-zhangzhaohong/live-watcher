@@ -10,6 +10,7 @@ interface LiveClientFactory {
     fun create(
         liveId: String,
         auth: DouyinAuth,
+        onLiveEnded: () -> Unit,
     ): LiveClient
 }
 
@@ -23,5 +24,6 @@ class DouyinLiveClientFactory(
     override fun create(
         liveId: String,
         auth: DouyinAuth,
-    ): LiveClient = DouyinLiveClient(liveId, auth, apiClient, properties, okHttpClient, mysteryUserCache)
+        onLiveEnded: () -> Unit,
+    ): LiveClient = DouyinLiveClient(liveId, auth, apiClient, properties, okHttpClient, mysteryUserCache, onLiveEnded)
 }

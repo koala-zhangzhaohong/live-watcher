@@ -57,7 +57,7 @@ class MysteryUserCacheTest {
     }
 
     @Test
-    fun `stores suffixed protobuf user by full nickname outside room list`() {
+    fun `stores suffixed protobuf user by full nickname and indexes it in room list`() {
         val user =
             LiveProto.User
                 .newBuilder()
@@ -72,6 +72,14 @@ class MysteryUserCacheTest {
         verify(valueOperations).set(
             "tiktok-live:test:user:data:dou_2283289",
             "{\"id\":123456,\"nickname\":\"dou2283289\",\"short_id\":654321,\"sec_uid\":\"MS4wLjABAAAA-test\",\"extra_info\":[]}",
+            Duration.ofSeconds(properties.roomRetentionSeconds),
+        )
+        verify(setOperations).add(
+            "tiktok-live:test:user:data:99887766:dou:index",
+            "tiktok-live:test:user:data:dou_2283289",
+        )
+        verify(redis).expire(
+            "tiktok-live:test:user:data:99887766:dou:index",
             Duration.ofSeconds(properties.roomRetentionSeconds),
         )
     }

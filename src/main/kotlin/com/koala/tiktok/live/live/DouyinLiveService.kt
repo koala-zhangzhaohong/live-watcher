@@ -170,7 +170,7 @@ class DouyinLiveService(
             return
         }
         runCatching {
-            val client = clientFactory.create(liveId, DouyinAuth.prepare(cookies))
+            val client = clientFactory.create(liveId, DouyinAuth.prepare(cookies)) { liveEnded(liveId) }
             client.start()
             clients[liveId] = client
             coordinator.recordStartSucceeded(liveId)
@@ -191,6 +191,15 @@ class DouyinLiveService(
         }
         runCatching { coordinator.release(liveId) }
             .onFailure { logger.warn("Failed to release coordination lease: liveId={}", liveId, it) }
+    }
+
+    private fun liveEnded(liveId: String) {
+        synchronized(lifecycleLock) {
+            if (coordinator.markEnded(liveId)) {
+                logger.info("Ended listener because broadcast finished: liveId={}, instanceId={}", liveId, coordinator.instanceId)
+            }
+            stopLocal(liveId)
+        }
     }
 
     private fun toView(room: CoordinatedRoom) =

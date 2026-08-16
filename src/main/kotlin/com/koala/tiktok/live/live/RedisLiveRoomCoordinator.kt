@@ -125,6 +125,14 @@ class RedisLiveRoomCoordinator(
             properties.maxConsecutiveFailures.toString(),
         ) == 1L
 
+    override fun markEnded(liveId: String): Boolean =
+        redis.execute(
+            MARK_ENDED_SCRIPT,
+            listOf(roomsKey, activitiesKey, leaseKey(liveId)),
+            liveId,
+            instanceId,
+        ) == 1L
+
     override fun purgeExpiredRooms(): Set<String> =
         redis.execute(
             PURGE_RECORDS_SCRIPT,
@@ -287,6 +295,19 @@ class RedisLiveRoomCoordinator(
                   return 1
                 end
                 return 0
+                """.trimIndent(),
+                Long::class.java,
+            )
+        private val MARK_ENDED_SCRIPT =
+            DefaultRedisScript(
+                """
+                if redis.call('hget', KEYS[1], ARGV[1]) ~= 'RUNNING' or redis.call('get', KEYS[3]) ~= ARGV[2] then
+                  return 0
+                end
+                redis.call('hset', KEYS[1], ARGV[1], 'ENDED')
+                redis.call('zrem', KEYS[2], ARGV[1])
+                redis.call('del', KEYS[3])
+                return 1
                 """.trimIndent(),
                 Long::class.java,
             )

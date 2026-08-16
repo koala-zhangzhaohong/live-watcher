@@ -100,6 +100,18 @@ class DouyinLiveServiceTest {
         assertEquals(0, fixture.service.summary().localListening)
     }
 
+    @Test
+    fun `live end callback marks room ended and stops listener`() {
+        val fixture = fixture()
+        fixture.service.start("95182733153")
+
+        fixture.factory.created.single().endLive()
+
+        assertEquals(DesiredRoomState.ENDED, fixture.service.room("95182733153")!!.desiredState)
+        assertEquals(0, fixture.service.summary().localListening)
+        assertTrue(fixture.factory.created.single().stopped)
+    }
+
     private fun fixture(failStarts: Boolean = false): Fixture {
         val properties = DouyinLiveProperties(cookies = TEST_COOKIES, instanceId = "test-instance")
         val factory = RecordingLiveClientFactory(failStarts)
@@ -119,11 +131,15 @@ class DouyinLiveServiceTest {
     private class RecordingLiveClientFactory(private val failStarts: Boolean) : LiveClientFactory {
         val created = CopyOnWriteArrayList<RecordingLiveClient>()
 
-        override fun create(liveId: String, auth: DouyinAuth): LiveClient =
-            RecordingLiveClient(liveId, failStarts).also { created += it }
+        override fun create(liveId: String, auth: DouyinAuth, onLiveEnded: () -> Unit): LiveClient =
+            RecordingLiveClient(liveId, failStarts, onLiveEnded).also { created += it }
     }
 
-    private class RecordingLiveClient(val liveId: String, private val failStart: Boolean) : LiveClient {
+    private class RecordingLiveClient(
+        val liveId: String,
+        private val failStart: Boolean,
+        private val onLiveEnded: () -> Unit,
+    ) : LiveClient {
         @Volatile var started = false
         @Volatile var stopped = false
 
@@ -135,6 +151,8 @@ class DouyinLiveServiceTest {
         override fun stop() {
             stopped = true
         }
+
+        fun endLive() = onLiveEnded()
     }
 
     companion object {

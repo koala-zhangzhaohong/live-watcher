@@ -90,6 +90,12 @@ class LocalLiveRoomCoordinator(
         return false
     }
 
+    override fun markEnded(liveId: String): Boolean {
+        val ended = states.replace(liveId, DesiredRoomState.RUNNING, DesiredRoomState.ENDED)
+        if (ended) activities.remove(liveId)
+        return ended
+    }
+
     override fun purgeExpiredRooms(): Set<String> {
         val now = System.currentTimeMillis()
         val expired = recordExpirations.filterValues { it <= now }.keys

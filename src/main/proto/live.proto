@@ -46,6 +46,13 @@ message LiveResponse {
     bool historyNoMore = 12;
     string proxyServer = 13;
 }
+
+// Douyin sends WebcastControlMessage when the current live status changes.
+// Only the field required by the listener lifecycle is kept.
+message ControlMessage {
+    int64 action = 2;
+}
+
 message Image {
     Content content = 8;
 }

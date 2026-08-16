@@ -48,6 +48,8 @@ interface LiveRoomCoordinator {
 
     fun recordStartFailure(liveId: String, reason: String): Boolean
 
+    fun markEnded(liveId: String): Boolean
+
     fun purgeExpiredRooms(): Set<String>
 
     fun instances(): List<CoordinatedInstance>

@@ -25,6 +25,7 @@ class DouyinLiveClient(
     private val properties: DouyinLiveProperties,
     private val okHttpClient: okhttp3.OkHttpClient,
     private val mysteryUserCache: MysteryUserCache,
+    private val onLiveEnded: () -> Unit,
 ) : WebSocketListener(),
     LiveClient {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -151,6 +152,16 @@ class DouyinLiveClient(
 
     private fun handleMessage(item: LiveProto.Message) {
         when (item.method) {
+            "WebcastControlMessage" -> {
+                val message = LiveProto.ControlMessage.parseFrom(item.payload)
+                if (message.action in LIVE_ENDED_ACTIONS && stopped.compareAndSet(false, true)) {
+                    logger.info("Live broadcast ended: liveId={}, roomId={}", liveId, currentRoomId)
+                    heartbeat?.cancel(true)
+                    webSocket?.close(1000, "live ended")
+                    onLiveEnded()
+                }
+            }
+
             "WebcastGiftMessage" -> {
                 val message = LiveProto.GiftMessage.parseFrom(item.payload)
                 val giftName = if (message.groupCount > 1) "[ ${message.gift.name} * ${message.groupCount} ]" else message.gift.name
@@ -203,5 +214,9 @@ class DouyinLiveClient(
 
             else -> {}
         }
+    }
+
+    private companion object {
+        val LIVE_ENDED_ACTIONS = setOf(3L, 4L, 6L)
     }
 }

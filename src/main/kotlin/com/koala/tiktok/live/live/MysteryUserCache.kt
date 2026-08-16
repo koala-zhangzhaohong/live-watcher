@@ -68,7 +68,7 @@ class MysteryUserCache(
     ) {
         if (user.id == MASKED_USER_ID) return
         if (SUFFIXED_NICKNAME.matches(user.nickname)) {
-            cacheByFullNickname(user, extraInfo)
+            cacheByFullNickname(roomId, user, extraInfo)
             return
         }
         if (roomId.isBlank()) return
@@ -94,18 +94,26 @@ class MysteryUserCache(
     }
 
     private fun cacheByFullNickname(
+        roomId: String,
         user: LiveProto.User,
         extraInfo: String?,
     ) {
         runCatching {
+            val type = suffixedNicknameType(user.nickname)
             val key = "${properties.redisKeyPrefix}:user:data:${suffixedKeySegment(user.nickname)}"
             val previous = readUser(key)
             val value = CachedMysteryUser(user.id, user.nickname, user.shortId, user.secUid, mergeExtraInfo(previous, extraInfo))
+            val duration = Duration.ofSeconds(properties.roomRetentionSeconds)
             redis.opsForValue().set(
                 key,
                 objectMapper.writeValueAsString(value),
-                Duration.ofSeconds(properties.roomRetentionSeconds),
+                duration,
             )
+            if (roomId.isNotBlank()) {
+                val roomIndexKey = indexKey(typeRoot(roomId, type))
+                redis.opsForSet().add(roomIndexKey, key)
+                redis.expire(roomIndexKey, duration)
+            }
         }.onFailure {
             logger.warn("Failed to cache suffixed mystery user: nickname={}, userId={}", user.nickname, user.id, it)
         }
@@ -175,13 +183,17 @@ class MysteryUserCache(
 
     private fun suffixedKeySegment(nickname: String): String {
         val match = SUFFIXED_NICKNAME.matchEntire(nickname) ?: error("Unsupported suffixed nickname: $nickname")
-        val type =
-            when (match.groupValues[1]) {
-                "神秘人" -> MysteryUserType.MYSTERY_PERSON
-                "神秘嘉宾" -> MysteryUserType.MYSTERY_GUEST
-                else -> MysteryUserType.DOU
-            }
+        val type = suffixedNicknameType(match.groupValues[1])
         return "${type.keySegment}_${match.groupValues[2]}"
+    }
+
+    private fun suffixedNicknameType(nickname: String): MysteryUserType {
+        val prefix = SUFFIXED_NICKNAME.matchEntire(nickname)?.groupValues?.get(1) ?: nickname
+        return when (prefix) {
+            "神秘人" -> MysteryUserType.MYSTERY_PERSON
+            "神秘嘉宾" -> MysteryUserType.MYSTERY_GUEST
+            else -> MysteryUserType.DOU
+        }
     }
 
     private companion object {
