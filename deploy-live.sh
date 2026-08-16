@@ -65,6 +65,8 @@ containers=(
   tiktok-live-backend-1
   tiktok-live-backend-2
   tiktok-live-backend-3
+  tiktok-live-backend-4
+  tiktok-live-backend-5
   tiktok-live-web-1
   tiktok-live-web-2
   tiktok-live-traefik-gateway

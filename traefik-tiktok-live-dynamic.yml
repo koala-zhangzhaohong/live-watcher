@@ -32,6 +32,8 @@ http:
           - url: "http://tiktok-live-backend-1:8080"
           - url: "http://tiktok-live-backend-2:8080"
           - url: "http://tiktok-live-backend-3:8080"
+          - url: "http://tiktok-live-backend-4:8080"
+          - url: "http://tiktok-live-backend-5:8080"
 
     tiktok-live-frontend:
       loadBalancer:

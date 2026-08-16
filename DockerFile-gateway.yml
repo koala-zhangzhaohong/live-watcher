@@ -102,6 +102,36 @@ services:
           memory: 14G
           cpus: "10.00"
 
+  tiktok-live-backend-4:
+    image: tiktok-live-service:${TIKTOK_LIVE_IMAGE_VERSION:-latest}
+    container_name: tiktok-live-backend-4
+    restart: always
+    environment: *backend-environment
+    depends_on:
+      - traefik
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
+  tiktok-live-backend-5:
+    image: tiktok-live-service:${TIKTOK_LIVE_IMAGE_VERSION:-latest}
+    container_name: tiktok-live-backend-5
+    restart: always
+    environment: *backend-environment
+    depends_on:
+      - traefik
+    networks:
+      - traefik-gateway-v2
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: "10.00"
+
   tiktok-live-web-1:
     image: tiktok-live-web:${TIKTOK_LIVE_IMAGE_VERSION:-latest}
     container_name: tiktok-live-web-1
